@@ -7,3 +7,5 @@ edition = "2024"
 name = "pulse_core"
 
 [dependencies]
+serde_json = "1.0.154"
+time = { version = "0.3.55", features = ["parsing"] }
