@@ -9,3 +9,5 @@ DerivedData/
 .netrc
 build/
 core/target/
+app/Sources/PulseCore/
+app/Sources/pulse_coreFFI/

@@ -5,7 +5,15 @@ edition = "2024"
 
 [lib]
 name = "pulse_core"
+# staticlib : le .a lié dans l'app Swift. lib : pour les tests et uniffi-bindgen.
+crate-type = ["lib", "staticlib"]
+
+# Outil de build qui génère les bindings Swift ; il n'est pas livré dans l'app.
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
 
 [dependencies]
 serde_json = "1.0.154"
 time = { version = "0.3.55", features = ["parsing"] }
+uniffi = { version = "0.32.2", features = ["cli"] }
