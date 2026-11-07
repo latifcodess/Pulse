@@ -6,6 +6,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/build/Pulse.app"
 SWIFT_DIR="$ROOT/app/Sources/PulseCore"
 FFI_DIR="$ROOT/app/Sources/pulse_coreFFI"
+# Compile aussi le code C des dépendances Rust pour la même cible que l'app.
+export MACOSX_DEPLOYMENT_TARGET=15.0
 
 echo "==> Compilation de core/ (lib statique Rust)"
 (cd "$ROOT/core" && cargo build --release)
