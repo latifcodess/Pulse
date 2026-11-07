@@ -11,13 +11,11 @@ struct PulseApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent()
+            PopoverContent(usage: usage)
         } label: {
-            HStack {
-                Image(systemName: "waveform.path.ecg")
-                Text(usage.sessionText)
-            }
+            MenuBarLabel(text: usage.sessionText, level: usage.sessionLevel)
         }
+        .menuBarExtraStyle(.window)
 
         Window("Réglages", id: WindowID.settings) {
             SettingsView(usage: usage)
@@ -35,20 +33,25 @@ struct PulseApp: App {
     }
 }
 
-private struct MenuContent: View {
+private struct PopoverContent: View {
+    let usage: UsageModel
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("Réglages…") {
-            openWindow(id: WindowID.settings)
-            // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que
-            // la fenêtre passe au premier plan.
-            NSApp.activate()
-        }
-        Divider()
-        Button("Quitter") {
-            NSApplication.shared.terminate(nil)
-        }
+        UsagePopover(
+            state: usage.state,
+            method: usage.method,
+            lastUpdated: usage.lastUpdated,
+            isRefreshing: usage.isRefreshing,
+            onRefresh: { usage.refreshNow() },
+            onSettings: {
+                openWindow(id: WindowID.settings)
+                // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que
+                // la fenêtre passe au premier plan.
+                NSApp.activate()
+            },
+            onQuit: { NSApplication.shared.terminate(nil) }
+        )
     }
 }
 

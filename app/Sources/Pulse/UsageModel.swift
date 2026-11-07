@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import PulseCore
 
@@ -7,6 +8,10 @@ import PulseCore
 final class UsageModel {
     private(set) var state: AiState?
     private(set) var claudeAiConnected = false
+    private(set) var method = ClaudeAuthMethod.current
+    /// Heure de la dernière réponse valide.
+    private(set) var lastUpdated: Date?
+    private(set) var isRefreshing = false
 
     private let monitor = AiMonitor()
     private var refreshTask: Task<Void, Never>?
@@ -39,10 +44,15 @@ final class UsageModel {
 
     private func refreshLoop() async {
         while !Task.isCancelled {
+            isRefreshing = true
             let newState = await fetchState()
             // Une actualisation plus récente a pu être lancée entre-temps.
             guard !Task.isCancelled else { return }
             state = newState
+            isRefreshing = false
+            if case .ok = newState {
+                lastUpdated = .now
+            }
             try? await Task.sleep(for: Self.refreshInterval)
         }
     }
@@ -51,7 +61,8 @@ final class UsageModel {
     /// thread principal pour ne pas figer l'interface.
     private func fetchState() async -> AiState {
         let monitor = monitor
-        switch ClaudeAuthMethod.current {
+        method = ClaudeAuthMethod.current
+        switch method {
         case .claudeCode:
             return await Task.detached(priority: .utility) { Self.fetchWithClaudeCode(monitor) }.value
 
@@ -77,24 +88,34 @@ final class UsageModel {
         }
     }
 
+    /// La fenêtre de session, ou la dernière connue hors ligne.
+    private var session: UsageWindow? {
+        let usage: AiUsage? =
+            switch state {
+            case .ok(let usage): usage
+            case .offline(let last): last
+            default: nil
+            }
+        return usage?.windows.first(where: { $0.label == "Session (5 h)" })
+    }
+
     /// Le texte affiché dans la barre des menus.
     var sessionText: String {
+        if let session {
+            return UsageFormat.percent(session.percent)
+        }
         switch state {
-        case nil: "…"
-        case .ok(let usage): Self.sessionText(usage)
-        case .offline(let last?): Self.sessionText(last)
-        case .offline(nil): "hors ligne"
-        case .notConnected: "non connecté"
-        case .expired: "expiré"
-        case .blocked: "bloqué"
-        case .unavailable: "indisponible"
+        case nil: return "…"
+        case .ok, .offline(.some): return "indisponible"
+        case .offline(nil): return "hors ligne"
+        case .notConnected: return "non connecté"
+        case .expired: return "expiré"
+        case .blocked: return "bloqué"
+        case .unavailable: return "indisponible"
         }
     }
 
-    private static func sessionText(_ usage: AiUsage) -> String {
-        guard let session = usage.windows.first(where: { $0.label == "Session (5 h)" }) else {
-            return "indisponible"
-        }
-        return "\(Int(session.percent.rounded())) %"
+    var sessionLevel: UsageLevel {
+        session.map { UsageLevel(percent: $0.percent) } ?? .normal
     }
 }
