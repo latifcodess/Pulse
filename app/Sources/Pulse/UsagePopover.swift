@@ -5,7 +5,7 @@ import SwiftUI
 /// pouvoir être affiché avec n'importe quel état.
 struct UsagePopover: View {
     let state: AiState?
-    let method: ClaudeAuthMethod
+    let service: AiService
     let lastUpdated: Date?
     let isRefreshing: Bool
     let onRefresh: () -> Void
@@ -17,7 +17,7 @@ struct UsagePopover: View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             VStack(alignment: .leading, spacing: 14) {
                 header
-                if let message = Self.message(for: state, method: method) {
+                if let message = Self.message(for: state, service: service) {
                     Label(message.text, systemImage: message.icon)
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -49,12 +49,12 @@ struct UsagePopover: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: "sparkle")
+            Image(systemName: service.symbol)
                 .font(.title2)
-                .foregroundStyle(.orange)
+                .foregroundStyle(service.tint)
                 .frame(width: 32, height: 32)
-                .background(.orange.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
-            Text("Claude")
+                .background(service.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+            Text(service.title)
                 .font(.headline)
             Spacer()
             if let highest {
@@ -93,29 +93,16 @@ struct UsagePopover: View {
         .help(title)
     }
 
-    static func message(for state: AiState?, method: ClaudeAuthMethod) -> (text: String, icon: String)? {
+    static func message(for state: AiState?, service: AiService) -> (text: String, icon: String)? {
         switch state {
-        case nil:
-            ("Chargement…", "hourglass")
-        case .ok:
-            nil
-        case .offline(.some):
-            ("Hors ligne : dernières valeurs connues.", "wifi.slash")
-        case .offline(nil):
-            ("Hors ligne.", "wifi.slash")
-        case .notConnected:
-            ("Non connecté. Choisissez une méthode de connexion dans les Réglages.", "person.crop.circle.badge.questionmark")
-        case .expired:
-            switch method {
-            case .claudeCode:
-                ("Le token de Claude Code a expiré. Lancez Claude Code pour le renouveler.", "clock.badge.exclamationmark")
-            case .claudeAi:
-                ("La session claude.ai a expiré. Reconnectez-vous dans les Réglages.", "clock.badge.exclamationmark")
-            }
-        case .blocked:
-            ("Accès temporairement bloqué. Nouvel essai dans 2 min.", "hand.raised")
-        case .unavailable:
-            ("Données indisponibles.", "exclamationmark.triangle")
+        case nil: ("Chargement…", "hourglass")
+        case .ok: nil
+        case .offline(.some): ("Hors ligne : dernières valeurs connues.", "wifi.slash")
+        case .offline(nil): ("Hors ligne.", "wifi.slash")
+        case .notConnected: (service.notConnectedHint, "person.crop.circle.badge.questionmark")
+        case .expired: (service.expiredHint, "clock.badge.exclamationmark")
+        case .blocked: ("Accès temporairement bloqué. Nouvel essai dans 2 min.", "hand.raised")
+        case .unavailable: ("Données indisponibles.", "exclamationmark.triangle")
         }
     }
 }

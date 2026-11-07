@@ -2,6 +2,7 @@
 
 uniffi::setup_scaffolding!();
 
+pub mod chatgpt;
 pub mod claude;
 pub mod claude_web;
 pub mod http;

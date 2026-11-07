@@ -2,22 +2,24 @@ import Foundation
 import Observation
 import PulseCore
 
-/// Garde l'état affiché et l'actualise toutes les 2 minutes.
+/// L'état affiché pour un service, actualisé toutes les 2 minutes.
 @MainActor
 @Observable
 final class UsageModel {
+    let service: AiService
     private(set) var state: AiState?
-    private(set) var claudeAiConnected = false
-    private(set) var method = ClaudeAuthMethod.current
     /// Heure de la dernière réponse valide.
     private(set) var lastUpdated: Date?
     private(set) var isRefreshing = false
 
-    private let monitor = AiMonitor()
+    private let fetch: @MainActor () async -> AiState
     private var refreshTask: Task<Void, Never>?
     private static let refreshInterval: Duration = .seconds(120)
 
-    init() {
+    /// `fetch` récupère l'état ; le travail bloquant doit y sortir du thread principal.
+    init(service: AiService, fetch: @escaping @MainActor () async -> AiState) {
+        self.service = service
+        self.fetch = fetch
         refreshNow()
     }
 
@@ -27,25 +29,10 @@ final class UsageModel {
         refreshTask = Task { await refreshLoop() }
     }
 
-    func connectClaudeAi(sessionKey: String) {
-        Task {
-            claudeAiConnected = await Task.detached { ClaudeSessionKeyStore.save(sessionKey) }.value
-            refreshNow()
-        }
-    }
-
-    func disconnectClaudeAi() {
-        Task {
-            _ = await Task.detached { ClaudeSessionKeyStore.delete() }.value
-            claudeAiConnected = false
-            refreshNow()
-        }
-    }
-
     private func refreshLoop() async {
         while !Task.isCancelled {
             isRefreshing = true
-            let newState = await fetchState()
+            let newState = await fetch()
             // Une actualisation plus récente a pu être lancée entre-temps.
             guard !Task.isCancelled else { return }
             state = newState
@@ -57,50 +44,17 @@ final class UsageModel {
         }
     }
 
-    /// Le Trousseau et le réseau sont bloquants : Task.detached les sort du
-    /// thread principal pour ne pas figer l'interface.
-    private func fetchState() async -> AiState {
-        let monitor = monitor
-        method = ClaudeAuthMethod.current
-        switch method {
-        case .claudeCode:
-            return await Task.detached(priority: .utility) { Self.fetchWithClaudeCode(monitor) }.value
-
-        case .claudeAi:
-            let sessionKey = await Task.detached(priority: .utility) { ClaudeSessionKeyStore.read() }.value
-            claudeAiConnected = sessionKey != nil
-            guard let sessionKey else { return .notConnected }
-
-            let state = await Task.detached(priority: .utility) {
-                monitor.refreshClaudeWeb(sessionKey: sessionKey)
-            }.value
-            guard state == .blocked, !Task.isCancelled else { return state }
-            return await ClaudeWebFallback.fetchState(sessionKey: sessionKey, monitor: monitor)
-        }
-    }
-
-    private nonisolated static func fetchWithClaudeCode(_ monitor: AiMonitor) -> AiState {
-        switch ClaudeCredentials.read() {
-        case .token(let token): monitor.refreshClaude(accessToken: token)
-        case .notConnected: .notConnected
-        case .expired: .expired
-        case .unavailable: .unavailable
-        }
-    }
-
-    /// La fenêtre de session, ou la dernière connue hors ligne.
+    /// La première limite (la session), ou la dernière connue hors ligne.
     private var session: UsageWindow? {
-        let usage: AiUsage? =
-            switch state {
-            case .ok(let usage): usage
-            case .offline(let last): last
-            default: nil
-            }
-        return usage?.windows.first(where: { $0.label == "Session (5 h)" })
+        switch state {
+        case .ok(let usage): usage.windows.first
+        case .offline(let last): last?.windows.first
+        default: nil
+        }
     }
 
     /// Le texte affiché dans la barre des menus.
-    var sessionText: String {
+    var barText: String {
         if let session {
             return UsageFormat.percent(session.percent)
         }
@@ -115,7 +69,7 @@ final class UsageModel {
         }
     }
 
-    var sessionLevel: UsageLevel {
+    var barLevel: UsageLevel {
         session.map { UsageLevel(percent: $0.percent) } ?? .normal
     }
 }

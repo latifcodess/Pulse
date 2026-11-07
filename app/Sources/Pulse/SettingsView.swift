@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    let usage: UsageModel
+    let app: AppModel
 
     @AppStorage(ClaudeAuthMethod.storageKey) private var method = ClaudeAuthMethod.claudeCode
     @Environment(\.openWindow) private var openWindow
@@ -16,10 +16,10 @@ struct SettingsView: View {
                 }
 
                 if method == .claudeAi {
-                    if usage.claudeAiConnected {
+                    if app.claudeAccount.claudeAiConnected {
                         LabeledContent("Compte claude.ai", value: "connecté")
                         Button("Se déconnecter") {
-                            usage.disconnectClaudeAi()
+                            app.disconnectClaudeAi()
                         }
                     } else {
                         Button("Se connecter à claude.ai…") {
@@ -34,7 +34,7 @@ struct SettingsView: View {
         .frame(width: 420)
         .fixedSize()
         .onChange(of: method) {
-            usage.refreshNow()
+            app.claude.refreshNow()
         }
     }
 }

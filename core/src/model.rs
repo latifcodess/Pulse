@@ -1,7 +1,7 @@
 //! Modèle de données commun à tous les services d'IA.
 
 /// Un service d'IA suivi par Pulse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum AiService {
     Claude,
     ChatGpt,

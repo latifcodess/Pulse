@@ -7,25 +7,33 @@ enum WindowID {
 
 @main
 struct PulseApp: App {
-    @State private var usage = UsageModel()
+    @State private var app = AppModel()
 
     var body: some Scene {
+        // Une puce par IA dans la barre des menus, chacune avec son popover.
         MenuBarExtra {
-            PopoverContent(usage: usage)
+            PopoverContent(model: app.claude)
         } label: {
-            MenuBarLabel(text: usage.sessionText, level: usage.sessionLevel)
+            ServiceLabel(model: app.claude)
+        }
+        .menuBarExtraStyle(.window)
+
+        MenuBarExtra {
+            PopoverContent(model: app.chatgpt)
+        } label: {
+            ServiceLabel(model: app.chatgpt)
         }
         .menuBarExtraStyle(.window)
 
         Window("Réglages", id: WindowID.settings) {
-            SettingsView(usage: usage)
+            SettingsView(app: app)
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
 
         Window("Connexion à claude.ai", id: WindowID.claudeLogin) {
-            ClaudeLoginWindow(usage: usage)
+            ClaudeLoginWindow(app: app)
         }
         .defaultSize(width: 520, height: 720)
         .defaultLaunchBehavior(.suppressed)
@@ -33,17 +41,25 @@ struct PulseApp: App {
     }
 }
 
+private struct ServiceLabel: View {
+    let model: UsageModel
+
+    var body: some View {
+        MenuBarLabel(symbol: model.service.symbol, text: model.barText, level: model.barLevel)
+    }
+}
+
 private struct PopoverContent: View {
-    let usage: UsageModel
+    let model: UsageModel
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         UsagePopover(
-            state: usage.state,
-            method: usage.method,
-            lastUpdated: usage.lastUpdated,
-            isRefreshing: usage.isRefreshing,
-            onRefresh: { usage.refreshNow() },
+            state: model.state,
+            service: model.service,
+            lastUpdated: model.lastUpdated,
+            isRefreshing: model.isRefreshing,
+            onRefresh: { model.refreshNow() },
             onSettings: {
                 openWindow(id: WindowID.settings)
                 // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que
@@ -56,12 +72,12 @@ private struct PopoverContent: View {
 }
 
 private struct ClaudeLoginWindow: View {
-    let usage: UsageModel
+    let app: AppModel
     @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
         ClaudeLoginView { sessionKey in
-            usage.connectClaudeAi(sessionKey: sessionKey)
+            app.connectClaudeAi(sessionKey: sessionKey)
             dismissWindow(id: WindowID.claudeLogin)
         }
         .frame(minWidth: 420, minHeight: 560)
