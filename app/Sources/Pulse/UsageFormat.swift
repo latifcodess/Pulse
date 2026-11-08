@@ -37,6 +37,16 @@ enum UsageFormat {
         return "Réinitialisé \(day)à \(time) · \(remaining(date.timeIntervalSince(now)))"
     }
 
+    /// « Au rythme actuel : 100 % vers 16:40 », avec le jour si ce n'est pas aujourd'hui.
+    static func projection(_ fullAt: Int64, now: Date) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(fullAt))
+        let time = date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(locale))
+        let day =
+            Calendar.current.isDate(date, inSameDayAs: now)
+            ? "" : date.formatted(.dateTime.weekday(.abbreviated).locale(locale)) + " "
+        return "Au rythme actuel : 100 % \(day)vers \(time)"
+    }
+
     /// « dans 45 min », « dans 2 h 15 », « dans 3 j 4 h ».
     static func remaining(_ seconds: TimeInterval) -> String {
         guard seconds >= 60 else { return "dans moins d'1 min" }

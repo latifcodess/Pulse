@@ -14,6 +14,7 @@ use crate::copilot::{self, TokenError};
 use crate::gemini::{self, AccessToken, GeminiCreds};
 use crate::http::{FetchError, HttpResponse};
 use crate::model::{AiService, AiState, AiUsage};
+use crate::projection::UsageHistory;
 
 /// Adresses et dossiers utilisés. Les tests les remplacent par des serveurs
 /// et des dossiers locaux.
@@ -55,6 +56,8 @@ pub struct AiMonitor {
     config: MonitorConfig,
     /// Dernière réponse valide de chaque service, réaffichée sans réseau.
     last: Mutex<HashMap<AiService, AiUsage>>,
+    /// Mesures récentes de chaque limite, pour la projection.
+    history: Mutex<UsageHistory>,
     /// Token de GitHub, gardé en mémoire seulement, pour ne pas relancer gh à
     /// chaque actualisation.
     copilot_token: Mutex<Option<String>>,
@@ -165,6 +168,7 @@ impl AiMonitor {
         Arc::new(Self {
             config,
             last: Mutex::new(HashMap::new()),
+            history: Mutex::new(UsageHistory::default()),
             copilot_token: Mutex::new(None),
             gemini_token: Mutex::new(None),
         })
@@ -253,8 +257,13 @@ impl AiMonitor {
         match result {
             Ok(usage) => {
                 let current = usage.as_of(now);
-                last.insert(service, usage);
-                AiState::Ok(current)
+                let projected = self
+                    .history
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .record(service, &current, now);
+                last.insert(service, projected.clone());
+                AiState::Ok(projected)
             }
             Err(FetchError::Offline) => AiState::Offline(last.get(&service).map(|u| u.as_of(now))),
             Err(FetchError::Expired) => AiState::Expired,

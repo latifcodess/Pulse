@@ -159,6 +159,7 @@ fn usage_window(label: String, percent: f64, resets_at: Option<i64>) -> UsageWin
         label,
         percent: percent.clamp(0.0, 100.0),
         resets_at,
+        projected_full_at: None,
     }
 }
 

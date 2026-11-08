@@ -72,6 +72,7 @@ fn parse_window(root: &Value, key: &str, label: &str) -> Option<UsageWindow> {
         label: label.to_string(),
         percent: percent.clamp(0.0, 100.0),
         resets_at: parse_resets_at(window),
+        projected_full_at: None,
     })
 }
 

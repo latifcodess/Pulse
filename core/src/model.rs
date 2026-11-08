@@ -17,6 +17,10 @@ pub struct UsageWindow {
     pub percent: f64,
     /// Heure de reset en secondes Unix, si elle est connue.
     pub resets_at: Option<i64>,
+    /// Heure à laquelle 100 % serait atteint au rythme actuel, en secondes
+    /// Unix. None : pas assez de mesures, consommation nulle, ou la limite se
+    /// réinitialise avant (voir projection.rs).
+    pub projected_full_at: Option<i64>,
 }
 
 /// L'usage d'un service : une entrée par fenêtre disponible.
@@ -37,6 +41,7 @@ impl AiUsage {
                     label: window.label.clone(),
                     percent: 0.0,
                     resets_at: None,
+                    projected_full_at: None,
                 },
                 _ => window.clone(),
             })

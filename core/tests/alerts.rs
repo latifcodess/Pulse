@@ -12,6 +12,7 @@ fn window(label: &str, percent: f64, resets_at: Option<i64>) -> UsageWindow {
         label: label.to_string(),
         percent,
         resets_at,
+        projected_full_at: None,
     }
 }
 

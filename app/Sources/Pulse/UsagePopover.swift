@@ -132,6 +132,11 @@ private struct WindowRow: View {
             Text(UsageFormat.reset(window.resetsAt, now: now))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if let fullAt = window.projectedFullAt {
+                Label(UsageFormat.projection(fullAt, now: now), systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
         }
     }
 }

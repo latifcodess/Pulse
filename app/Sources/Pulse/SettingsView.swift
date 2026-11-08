@@ -343,8 +343,8 @@ private struct BarPreview: View {
     let model: UsageModel
 
     private static let sample = [
-        UsageWindow(label: "Session", percent: 42, resetsAt: nil),
-        UsageWindow(label: "Semaine", percent: 81, resetsAt: nil),
+        UsageWindow(label: "Session", percent: 42, resetsAt: nil, projectedFullAt: nil),
+        UsageWindow(label: "Semaine", percent: 81, resetsAt: nil, projectedFullAt: nil),
     ]
 
     var body: some View {

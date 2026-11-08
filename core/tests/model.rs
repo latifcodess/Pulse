@@ -6,6 +6,7 @@ fn usage(percent: f64, resets_at: Option<i64>) -> AiUsage {
             label: "Session (5 h)".to_string(),
             percent,
             resets_at,
+            projected_full_at: None,
         }],
     }
 }

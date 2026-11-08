@@ -11,3 +11,4 @@ pub mod gemini;
 pub mod http;
 pub mod model;
 pub mod monitor;
+pub mod projection;

@@ -201,6 +201,7 @@ pub fn parse_gemini_quota(json: &str) -> Result<AiUsage, ParseError> {
                 .and_then(Value::as_str)
                 .and_then(|text| OffsetDateTime::parse(text, &Rfc3339).ok())
                 .map(|date| date.unix_timestamp()),
+            projected_full_at: None,
         };
         match models.iter_mut().find(|(id, _)| id == model_id) {
             Some((_, existing)) if existing.percent < window.percent => *existing = window,

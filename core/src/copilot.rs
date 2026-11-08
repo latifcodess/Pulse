@@ -124,6 +124,7 @@ pub fn parse_copilot_usage(json: &str) -> Result<AiUsage, ParseError> {
                 label: label.to_string(),
                 percent: (100.0 - remaining).clamp(0.0, 100.0),
                 resets_at,
+                projected_full_at: None,
             })
         })
         .collect();
