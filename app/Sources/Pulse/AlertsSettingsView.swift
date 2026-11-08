@@ -42,6 +42,9 @@ struct AlertsSettingsTab: View {
                     Button("Session expirée") {
                         alerts.addRule(.expired)
                     }
+                    Button("Limite bientôt atteinte (projection)") {
+                        alerts.addRule(.projection(minutes: 30))
+                    }
                 }
                 Button("Rétablir les alertes par défaut") { alerts.resetRules() }
             }
@@ -131,6 +134,15 @@ private struct AlertRuleRow: View {
                     Text("Un clic sur la notification ouvre les réglages de l'IA.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
+                case .projection:
+                    Stepper(value: minutes, in: 5...120, step: 5) {
+                        LabeledContent("Si atteinte dans moins de") {
+                            Text("\(minutes.wrappedValue) min").monospacedDigit()
+                        }
+                    }
+                    Text("Au rythme actuel de consommation. Une seule fois par fenêtre.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
             }
             .disabled(!rule.enabled)
@@ -155,14 +167,23 @@ private struct AlertRuleRow: View {
             switch rule.kind {
             case .threshold(_, let percent): percent
             case .available(let percent): percent
-            case .expired: 0
+            case .expired, .projection: 0
             }
         } set: { percent in
             switch rule.kind {
             case .threshold(let index, _): rule.kind = .threshold(windowIndex: index, percent: percent)
             case .available: rule.kind = .available(afterPercent: percent)
-            case .expired: break
+            case .expired, .projection: break
             }
+        }
+    }
+
+    /// Le délai d'une règle de projection, en minutes.
+    private var minutes: Binding<Int> {
+        Binding {
+            if case .projection(let minutes) = rule.kind { Int(minutes) } else { 30 }
+        } set: { minutes in
+            rule.kind = .projection(minutes: UInt32(minutes))
         }
     }
 }
@@ -186,6 +207,7 @@ extension AlertKind {
         case .threshold: "Limite au-dessus d'un seuil"
         case .available: "De nouveau disponible"
         case .expired: "Session expirée"
+        case .projection: "Limite bientôt atteinte"
         }
     }
 
@@ -194,6 +216,7 @@ extension AlertKind {
         case .threshold: "gauge.with.dots.needle.67percent"
         case .available: "arrow.counterclockwise.circle"
         case .expired: "clock.badge.exclamationmark"
+        case .projection: "chart.line.uptrend.xyaxis"
         }
     }
 }

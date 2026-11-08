@@ -253,6 +253,7 @@ fn regles_par_defaut() {
             AlertKind::Threshold { window_index: 1, percent: 90.0 },
             AlertKind::Available { after_percent: 80.0 },
             AlertKind::Expired,
+            AlertKind::Projection { minutes: 30 },
         ]
     );
     assert!(rules.iter().all(|r| r.enabled && r.service.is_none()));
@@ -298,4 +299,87 @@ fn json_tolerant() {
 
 fn ids_of(rules: &[AlertRule]) -> Vec<&str> {
     rules.iter().map(|r| r.id.as_str()).collect()
+}
+
+// --- Projection ---
+
+fn projection_rule(minutes: u32) -> AlertRule {
+    rule("proj", AlertKind::Projection { minutes })
+}
+
+/// Une session à `percent`, réinitialisée à `resets_at`, pleine à `full_at`.
+fn projected(percent: f64, resets_at: i64, full_at: Option<i64>) -> AiState {
+    AiState::Ok(AiUsage {
+        windows: vec![UsageWindow {
+            label: "Session".to_string(),
+            percent,
+            resets_at: Some(resets_at),
+            projected_full_at: full_at,
+        }],
+    })
+}
+
+#[test]
+fn projection_moins_de_30_min() {
+    let engine = AlertEngine::new();
+    let rules = vec![projection_rule(30)];
+    let reset = NOW + 2 * HOUR;
+
+    // Plein dans 31 min : trop loin.
+    assert!(engine.evaluate(AiService::Claude, projected(70.0, reset, Some(NOW + 31 * 60)), rules.clone(), NOW).is_empty());
+    // Plein dans 30 min : notification.
+    let events = engine.evaluate(AiService::Claude, projected(75.0, reset, Some(NOW + 30 * 60)), rules.clone(), NOW);
+    assert_eq!(
+        events[0].kind,
+        AlertEventKind::Projection {
+            window_label: "Session".to_string(),
+            percent: 75.0,
+            full_at: NOW + 30 * 60,
+        }
+    );
+}
+
+#[test]
+fn projection_absente_ne_declenche_rien() {
+    let engine = AlertEngine::new();
+    let state = projected(99.0, NOW + HOUR, None);
+    assert!(engine.evaluate(AiService::Claude, state, vec![projection_rule(30)], NOW).is_empty());
+}
+
+#[test]
+fn projection_une_seule_fois_par_fenetre() {
+    let engine = AlertEngine::new();
+    let rules = vec![projection_rule(30)];
+    let reset = NOW + 2 * HOUR;
+    let eval = |state, now| engine.evaluate(AiService::Claude, state, rules.clone(), now);
+
+    assert_eq!(eval(projected(80.0, reset, Some(NOW + 20 * 60)), NOW).len(), 1);
+    assert!(eval(projected(85.0, reset, Some(NOW + 15 * 60)), NOW + 60).is_empty());
+    // La consommation ralentit (plus de projection), puis repart : même fenêtre, pas de rappel.
+    assert!(eval(projected(85.0, reset, None), NOW + 120).is_empty());
+    assert!(eval(projected(88.0, reset, Some(NOW + 600)), NOW + 180).is_empty());
+
+    // Nouvelle fenêtre : l'alerte est réarmée.
+    let later = reset + 60;
+    let new_reset = reset + 5 * HOUR;
+    assert!(eval(projected(1.0, new_reset, None), later).is_empty());
+    assert_eq!(eval(projected(70.0, new_reset, Some(later + 600)), later + 60).len(), 1);
+}
+
+#[test]
+fn projection_delai_personnalise() {
+    let engine = AlertEngine::new();
+    let state = projected(50.0, NOW + 3 * HOUR, Some(NOW + 50 * 60));
+    assert!(engine.evaluate(AiService::Claude, state.clone(), vec![projection_rule(30)], NOW).is_empty());
+    // Délai porté à 60 min : la règle a changé, elle se déclenche.
+    assert_eq!(engine.evaluate(AiService::Claude, state, vec![projection_rule(60)], NOW).len(), 1);
+}
+
+#[test]
+fn projection_en_json() {
+    let rules = vec![projection_rule(45)];
+    assert_eq!(alert_rules_from_json(alert_rules_to_json(rules.clone())), rules);
+    // Délai absent : 30 min.
+    let parsed = alert_rules_from_json(r#"[{"id": "p", "kind": "projection"}]"#.to_string());
+    assert_eq!(parsed[0].kind, AlertKind::Projection { minutes: 30 });
 }

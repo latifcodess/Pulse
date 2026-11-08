@@ -21,6 +21,9 @@ pub enum AlertKind {
     Available { after_percent: f64 },
     /// La connexion a expiré.
     Expired,
+    /// Au rythme actuel, une limite sera atteinte dans moins de `minutes`
+    /// minutes (voir projection.rs). Une seule fois par fenêtre.
+    Projection { minutes: u32 },
 }
 
 /// Une règle d'alerte réglée par l'utilisateur.
@@ -47,6 +50,11 @@ pub enum AlertEventKind {
         previous_percent: f64,
     },
     Expired,
+    Projection {
+        window_label: String,
+        percent: f64,
+        full_at: i64,
+    },
 }
 
 /// Une notification à afficher.
@@ -71,6 +79,7 @@ pub fn default_alert_rules() -> Vec<AlertRule> {
         rule("defaut-2e-limite", AlertKind::Threshold { window_index: 1, percent: 90.0 }),
         rule("defaut-disponible", AlertKind::Available { after_percent: 80.0 }),
         rule("defaut-expiree", AlertKind::Expired),
+        rule("defaut-projection", AlertKind::Projection { minutes: 30 }),
     ]
 }
 
@@ -88,6 +97,9 @@ type SlotKey = (String, AiService, u32);
 #[derive(Default)]
 struct EngineState {
     fired: HashMap<SlotKey, AlertKind>,
+    /// Alertes « une fois par fenêtre » déjà envoyées, par limite (libellé).
+    /// Elles ne se réarment qu'au début d'une nouvelle fenêtre.
+    fired_in_window: HashMap<(String, AiService, String), AlertKind>,
     /// Dernières limites reçues de chaque service (réponses valides seulement).
     last_windows: HashMap<AiService, Vec<UsageWindow>>,
 }
@@ -145,6 +157,31 @@ impl AlertEngine {
                                     events.push(event(rule, service, AlertEventKind::Available {
                                         window_label: window.label.clone(),
                                         previous_percent: before.percent,
+                                    }));
+                                }
+                            }
+                        }
+                        AlertKind::Projection { minutes } => {
+                            for window in &windows {
+                                let key = (rule.id.clone(), service, window.label.clone());
+                                // Nouvelle fenêtre, ou règle modifiée : l'alerte se réarme.
+                                let new_window = previous
+                                    .iter()
+                                    .find(|w| w.label == window.label)
+                                    .is_some_and(|before| is_new_window(before, window, now));
+                                if new_window || engine.fired_in_window.get(&key).is_some_and(|k| *k != rule.kind) {
+                                    engine.fired_in_window.remove(&key);
+                                }
+                                let Some(full_at) = window.projected_full_at else {
+                                    continue;
+                                };
+                                let soon = full_at - now <= i64::from(*minutes) * 60;
+                                if soon && !engine.fired_in_window.contains_key(&key) {
+                                    engine.fired_in_window.insert(key, rule.kind.clone());
+                                    events.push(event(rule, service, AlertEventKind::Projection {
+                                        window_label: window.label.clone(),
+                                        percent: window.percent,
+                                        full_at,
                                     }));
                                 }
                             }
@@ -236,6 +273,10 @@ pub fn alert_rules_to_json(rules: Vec<AlertRule>) -> String {
                     item["percent"] = json!(after_percent);
                 }
                 AlertKind::Expired => item["kind"] = json!("expired"),
+                AlertKind::Projection { minutes } => {
+                    item["kind"] = json!("projection");
+                    item["minutes"] = json!(minutes);
+                }
             }
             item
         })
@@ -263,6 +304,9 @@ fn parse_rule(item: &Value) -> Option<AlertRule> {
         },
         "available" => AlertKind::Available { after_percent: percent()? },
         "expired" => AlertKind::Expired,
+        "projection" => AlertKind::Projection {
+            minutes: item.get("minutes").and_then(Value::as_u64).unwrap_or(30).clamp(1, 24 * 60) as u32,
+        },
         _ => return None,
     };
     let service = match item.get("service") {

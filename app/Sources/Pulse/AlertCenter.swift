@@ -107,6 +107,14 @@ final class AlertCenter: NSObject, UNUserNotificationCenterDelegate {
             content.title = "\(service.title) de nouveau disponible"
             content.body = "« \(label) » repart à zéro (la fenêtre précédente avait atteint \(UsageFormat.percent(previousPercent)))."
             identifier += ".\(label)"
+        case .projection(let label, let percent, let fullAt):
+            let minutes = max(0, Int((Double(fullAt) - Date.now.timeIntervalSince1970) / 60))
+            content.title = "\(service.title) : limite bientôt atteinte"
+            let time = Date(timeIntervalSince1970: TimeInterval(fullAt))
+                .formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(Locale(identifier: "fr_FR")))
+            content.body = "Au rythme actuel, « \(label) » (\(UsageFormat.percent(percent))) atteindra 100 % "
+                + "vers \(time), dans \(minutes) min."
+            identifier += ".\(label)"
         case .expired:
             content.title = "\(service.title) : session expirée"
             content.body = "\(service.expiredHint) Cliquez pour ouvrir les réglages."
