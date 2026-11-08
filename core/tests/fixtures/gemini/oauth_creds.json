@@ -1,0 +1,8 @@
+{
+  "access_token": "ya29.faux-token-du-fichier",
+  "refresh_token": "1//faux-refresh+token/test",
+  "scope": "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email openid",
+  "token_type": "Bearer",
+  "id_token": "faux.id.token",
+  "expiry_date": 1700000000000
+}

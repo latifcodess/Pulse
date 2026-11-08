@@ -27,20 +27,35 @@ pub struct HttpResponse {
 /// GET bloquant : il ne doit pas tourner sur le thread principal de l'app.
 /// Tout code HTTP renvoie Ok : c'est à l'appelant de l'interpréter.
 pub fn get(url: &str, headers: &[(&str, &str)], timeout: Duration) -> Result<HttpResponse, FetchError> {
-    let agent: ureq::Agent = ureq::Agent::config_builder()
+    let mut request = agent(timeout).get(url);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    read_response(request.call())
+}
+
+/// POST bloquant, avec un corps déjà encodé (JSON ou formulaire) : le
+/// Content-Type est à donner dans `headers`.
+pub fn post(url: &str, headers: &[(&str, &str)], body: &str, timeout: Duration) -> Result<HttpResponse, FetchError> {
+    let mut request = agent(timeout).post(url);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    read_response(request.send(body))
+}
+
+fn agent(timeout: Duration) -> ureq::Agent {
+    ureq::Agent::config_builder()
         .timeout_global(Some(timeout))
         .http_status_as_error(false)
         // Une redirection pourrait envoyer le token vers un autre serveur.
         .max_redirects(0)
         .build()
-        .into();
+        .into()
+}
 
-    let mut request = agent.get(url);
-    for (name, value) in headers {
-        request = request.header(*name, *value);
-    }
-    let mut response = request.call().map_err(transport_error)?;
-
+fn read_response(result: Result<ureq::http::Response<ureq::Body>, ureq::Error>) -> Result<HttpResponse, FetchError> {
+    let mut response = result.map_err(transport_error)?;
     let status = response.status().as_u16();
     let content_type = response
         .headers()

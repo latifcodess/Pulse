@@ -11,6 +11,7 @@ use crate::chatgpt;
 use crate::claude::{self, fetch_claude_usage};
 use crate::claude_web;
 use crate::copilot::{self, TokenError};
+use crate::gemini::{self, AccessToken, GeminiCreds};
 use crate::http::{FetchError, HttpResponse};
 use crate::model::{AiService, AiState, AiUsage};
 
@@ -25,6 +26,9 @@ pub struct MonitorConfig {
     pub copilot_usage_url: String,
     pub gh_paths: Vec<PathBuf>,
     pub gh_timeout: Duration,
+    pub gemini_dir: Option<PathBuf>,
+    pub google_token_url: String,
+    pub gemini_api_base_url: String,
     pub timeout: Duration,
 }
 
@@ -38,6 +42,9 @@ impl MonitorConfig {
             copilot_usage_url: copilot::USAGE_URL.to_string(),
             gh_paths: copilot::GH_PATHS.iter().map(PathBuf::from).collect(),
             gh_timeout: Duration::from_secs(10),
+            gemini_dir: gemini::default_gemini_dir(),
+            google_token_url: gemini::TOKEN_URL.to_string(),
+            gemini_api_base_url: gemini::API_BASE_URL.to_string(),
             timeout: Duration::from_secs(10),
         }
     }
@@ -51,6 +58,24 @@ pub struct AiMonitor {
     /// Token de GitHub, gardé en mémoire seulement, pour ne pas relancer gh à
     /// chaque actualisation.
     copilot_token: Mutex<Option<String>>,
+    /// Token de Gemini renouvelé par Pulse, gardé en mémoire seulement : le
+    /// fichier de Gemini CLI n'est jamais réécrit.
+    gemini_token: Mutex<Option<RefreshedToken>>,
+}
+
+/// Pourquoi l'usage de Gemini n'a pas pu être récupéré.
+enum GeminiError {
+    /// Le token n'a pas pu être obtenu (ou renouvelé).
+    Token(FetchError),
+    /// L'API de Gemini a échoué.
+    Api(FetchError),
+}
+
+/// Un token renouvelé, et le refresh_token qui a servi à l'obtenir : si le
+/// compte change dans Gemini CLI, l'ancien token n'est plus utilisé.
+struct RefreshedToken {
+    refresh_token: String,
+    access: AccessToken,
 }
 
 /// Pourquoi l'usage de Copilot n'a pas pu être récupéré.
@@ -117,6 +142,22 @@ impl AiMonitor {
             Err(CopilotError::Token(_)) => AiState::NotConnected,
         }
     }
+
+    /// Usage de Gemini avec le compte de Gemini CLI. Appel bloquant, trois
+    /// requêtes au plus (renouvellement du token, projet, quotas).
+    pub fn refresh_gemini(&self) -> AiState {
+        let Some(creds) = self.config.gemini_dir.as_deref().and_then(gemini::read_creds) else {
+            return AiState::NotConnected;
+        };
+        let mut result = self.fetch_gemini(&creds, false);
+        if matches!(result, Err(GeminiError::Api(FetchError::Expired))) && creds.refresh_token.is_some() {
+            // L'API a refusé le token avant son expiration : on en demande un
+            // nouveau. Si c'est le renouvellement qui a été refusé, inutile.
+            result = self.fetch_gemini(&creds, true);
+        }
+        let result = result.map_err(|(GeminiError::Token(error) | GeminiError::Api(error))| error);
+        self.state_from(AiService::Gemini, result)
+    }
 }
 
 impl AiMonitor {
@@ -125,6 +166,7 @@ impl AiMonitor {
             config,
             last: Mutex::new(HashMap::new()),
             copilot_token: Mutex::new(None),
+            gemini_token: Mutex::new(None),
         })
     }
 
@@ -162,6 +204,45 @@ impl AiMonitor {
         *cached = None;
         let token = copilot::gh_token(&self.config.gh_paths, self.config.gh_timeout)?;
         *cached = Some(token.clone());
+        Ok(token)
+    }
+
+    fn fetch_gemini(&self, creds: &GeminiCreds, force_refresh: bool) -> Result<AiUsage, GeminiError> {
+        let token = self.gemini_access_token(creds, force_refresh).map_err(GeminiError::Token)?;
+        let base_url = &self.config.gemini_api_base_url;
+        let timeout = self.config.timeout;
+        gemini::load_project(base_url, &token, timeout)
+            .and_then(|project| gemini::fetch_quota(base_url, &token, &project, timeout))
+            .map_err(GeminiError::Api)
+    }
+
+    /// Le token du fichier s'il est valable, sinon celui renouvelé en mémoire,
+    /// sinon un nouveau demandé à Google.
+    fn gemini_access_token(&self, creds: &GeminiCreds, force_refresh: bool) -> Result<String, FetchError> {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let mut cached = self.gemini_token.lock().unwrap_or_else(PoisonError::into_inner);
+        let refresh_token = creds.refresh_token.as_deref();
+
+        if !force_refresh {
+            if let Some(token) = creds.valid_access_token(now) {
+                return Ok(token.to_string());
+            }
+            if let Some(entry) = cached.as_ref()
+                && Some(entry.refresh_token.as_str()) == refresh_token
+                && entry.access.is_valid(now)
+            {
+                return Ok(entry.access.token.clone());
+            }
+        }
+
+        *cached = None;
+        let refresh_token = refresh_token.ok_or(FetchError::Expired)?;
+        let access = gemini::refresh_access_token(&self.config.google_token_url, refresh_token, self.config.timeout, now)?;
+        let token = access.token.clone();
+        *cached = Some(RefreshedToken {
+            refresh_token: refresh_token.to_string(),
+            access,
+        });
         Ok(token)
     }
 

@@ -26,6 +26,13 @@ struct PulseApp: App {
         .menuBarExtraStyle(.window)
 
         MenuBarExtra {
+            PopoverContent(model: app.gemini)
+        } label: {
+            ServiceLabel(model: app.gemini)
+        }
+        .menuBarExtraStyle(.window)
+
+        MenuBarExtra {
             PopoverContent(model: app.copilot)
         } label: {
             ServiceLabel(model: app.copilot)
