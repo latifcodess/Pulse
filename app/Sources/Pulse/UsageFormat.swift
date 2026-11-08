@@ -1,21 +1,11 @@
 import Foundation
 import SwiftUI
 
-/// Niveau d'alerte d'une limite : orange au-dessus de 75 %, rouge au-dessus de 90 %.
+/// Niveau d'alerte d'une limite, selon les seuils choisis (voir Thresholds).
 enum UsageLevel {
     case normal
     case warning
     case critical
-
-    init(percent: Double) {
-        if percent > 90 {
-            self = .critical
-        } else if percent > 75 {
-            self = .warning
-        } else {
-            self = .normal
-        }
-    }
 
     /// nil : couleur par défaut du système.
     var color: Color? {
@@ -62,6 +52,11 @@ enum UsageFormat {
         let days = hours / 24
         let rest = hours % 24
         return rest == 0 ? "dans \(days) j" : "dans \(days) j \(rest) h"
+    }
+
+    /// « 30 s », « 1 min », « 10 min ».
+    static func interval(_ seconds: Int) -> String {
+        seconds < 60 ? "\(seconds) s" : "\(seconds / 60) min"
     }
 
     static func updated(_ date: Date?, now: Date) -> String {

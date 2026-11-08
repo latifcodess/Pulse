@@ -7,6 +7,9 @@ struct UsagePopover: View {
     let state: AiState?
     let service: AiService
     let lastUpdated: Date?
+    let thresholds: Thresholds
+    /// Intervalle d'actualisation, en secondes.
+    let refreshInterval: Int
     let isRefreshing: Bool
     let onRefresh: () -> Void
     let onSettings: () -> Void
@@ -17,14 +20,14 @@ struct UsagePopover: View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             VStack(alignment: .leading, spacing: 14) {
                 header
-                if let message = Self.message(for: state, service: service) {
+                if let message = Self.message(for: state, service: service, refreshInterval: refreshInterval) {
                     Label(message.text, systemImage: message.icon)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
-                    WindowRow(window: window, now: context.date)
+                    WindowRow(window: window, color: thresholds.level(for: window.percent).color, now: context.date)
                 }
                 Divider()
                 footer(now: context.date)
@@ -61,7 +64,7 @@ struct UsagePopover: View {
                 Text(UsageFormat.percent(highest.percent))
                     .font(.system(size: 30, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(UsageLevel(percent: highest.percent).color ?? .primary)
+                    .foregroundStyle(thresholds.level(for: highest.percent).color ?? .primary)
             }
         }
     }
@@ -93,7 +96,7 @@ struct UsagePopover: View {
         .help(title)
     }
 
-    static func message(for state: AiState?, service: AiService) -> (text: String, icon: String)? {
+    static func message(for state: AiState?, service: AiService, refreshInterval: Int) -> (text: String, icon: String)? {
         switch state {
         case nil: ("Chargement…", "hourglass")
         case .ok: nil
@@ -101,7 +104,7 @@ struct UsagePopover: View {
         case .offline(nil): ("Hors ligne.", "wifi.slash")
         case .notConnected: (service.notConnectedHint, "person.crop.circle.badge.questionmark")
         case .expired: (service.expiredHint, "clock.badge.exclamationmark")
-        case .blocked: ("Accès temporairement bloqué. Nouvel essai dans 2 min.", "hand.raised")
+        case .blocked: ("Accès temporairement bloqué. Nouvel essai dans \(UsageFormat.interval(refreshInterval)).", "hand.raised")
         case .unavailable: ("Données indisponibles.", "exclamationmark.triangle")
         }
     }
@@ -109,10 +112,10 @@ struct UsagePopover: View {
 
 private struct WindowRow: View {
     let window: UsageWindow
+    let color: Color?
     let now: Date
 
     var body: some View {
-        let color = UsageLevel(percent: window.percent).color
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 Text(window.label)

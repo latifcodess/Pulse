@@ -10,6 +10,13 @@ final class AppModel {
     let chatgpt: UsageModel
     let gemini: UsageModel
     let copilot: UsageModel
+    let launchAtLogin = LaunchAtLogin()
+
+    /// Dans l'ordre de la barre des menus et des onglets des réglages.
+    var services: [UsageModel] { [claude, chatgpt, gemini, copilot] }
+
+    /// Aucune puce dans la barre : l'icône de Pulse prend le relais.
+    var noServiceShown: Bool { !services.contains(where: \.isEnabled) }
 
     init() {
         let monitor = AiMonitor()

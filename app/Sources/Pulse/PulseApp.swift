@@ -10,34 +10,20 @@ struct PulseApp: App {
     @State private var app = AppModel()
 
     var body: some Scene {
-        // Une puce par IA dans la barre des menus, chacune avec son popover.
-        MenuBarExtra {
-            PopoverContent(model: app.claude)
-        } label: {
-            ServiceLabel(model: app.claude)
-        }
-        .menuBarExtraStyle(.window)
+        // Une puce par IA suivie dans la barre des menus, chacune avec son popover.
+        ServiceMenuBarItem(model: app.claude)
+        ServiceMenuBarItem(model: app.chatgpt)
+        ServiceMenuBarItem(model: app.gemini)
+        ServiceMenuBarItem(model: app.copilot)
 
-        MenuBarExtra {
-            PopoverContent(model: app.chatgpt)
-        } label: {
-            ServiceLabel(model: app.chatgpt)
+        // Si aucune IA n'est suivie, cette icône garde un accès aux réglages.
+        MenuBarExtra(
+            "Pulse",
+            systemImage: "waveform.path.ecg",
+            isInserted: Binding(get: { app.noServiceShown }, set: { _ in })
+        ) {
+            FallbackMenu()
         }
-        .menuBarExtraStyle(.window)
-
-        MenuBarExtra {
-            PopoverContent(model: app.gemini)
-        } label: {
-            ServiceLabel(model: app.gemini)
-        }
-        .menuBarExtraStyle(.window)
-
-        MenuBarExtra {
-            PopoverContent(model: app.copilot)
-        } label: {
-            ServiceLabel(model: app.copilot)
-        }
-        .menuBarExtraStyle(.window)
 
         Window("Réglages", id: WindowID.settings) {
             SettingsView(app: app)
@@ -55,11 +41,44 @@ struct PulseApp: App {
     }
 }
 
-private struct ServiceLabel: View {
+/// La puce d'une IA. Elle disparaît quand l'IA n'est plus suivie ; si
+/// l'utilisateur la retire de la barre (⌘-glisser), l'IA n'est plus suivie.
+private struct ServiceMenuBarItem: Scene {
     let model: UsageModel
 
+    var body: some Scene {
+        MenuBarExtra(isInserted: Binding(get: { model.isEnabled }, set: { model.isEnabled = $0 })) {
+            PopoverContent(model: model)
+        } label: {
+            let bar = model.bar
+            MenuBarLabel(symbol: model.service.symbol, text: bar.text, level: bar.level)
+        }
+        .menuBarExtraStyle(.window)
+    }
+}
+
+/// Ouvre la fenêtre Réglages au premier plan, sur l'onglet demandé.
+@MainActor
+private func showSettings(tab: String, openWindow: OpenWindowAction) {
+    UserDefaults.standard.set(tab, forKey: SettingsTab.storageKey)
+    openWindow(id: WindowID.settings)
+    // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que la
+    // fenêtre passe au premier plan.
+    NSApp.activate()
+}
+
+private struct FallbackMenu: View {
+    @Environment(\.openWindow) private var openWindow
+
     var body: some View {
-        MenuBarLabel(symbol: model.service.symbol, text: model.barText, level: model.barLevel)
+        Text("Aucune IA suivie")
+        Button("Réglages…") {
+            showSettings(tab: SettingsTab.general, openWindow: openWindow)
+        }
+        .keyboardShortcut(",")
+        Divider()
+        Button("Quitter Pulse") { NSApplication.shared.terminate(nil) }
+            .keyboardShortcut("q")
     }
 }
 
@@ -72,14 +91,11 @@ private struct PopoverContent: View {
             state: model.state,
             service: model.service,
             lastUpdated: model.lastUpdated,
+            thresholds: model.settings.thresholds,
+            refreshInterval: model.refreshInterval,
             isRefreshing: model.isRefreshing,
             onRefresh: { model.refreshNow() },
-            onSettings: {
-                openWindow(id: WindowID.settings)
-                // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que
-                // la fenêtre passe au premier plan.
-                NSApp.activate()
-            },
+            onSettings: { showSettings(tab: model.service.storageKey, openWindow: openWindow) },
             onQuit: { NSApplication.shared.terminate(nil) }
         )
     }
