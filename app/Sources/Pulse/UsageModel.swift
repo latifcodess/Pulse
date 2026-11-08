@@ -14,6 +14,8 @@ final class UsageModel {
     private(set) var isRefreshing = false
 
     private let fetch: @MainActor () async -> AiState
+    /// Appelé à chaque nouvel état (pour les alertes).
+    @ObservationIgnored var onNewState: ((AiService, AiState) -> Void)?
     private var refreshTask: Task<Void, Never>?
 
     /// `fetch` récupère l'état ; le travail bloquant doit y sortir du thread principal.
@@ -75,6 +77,7 @@ final class UsageModel {
             guard !Task.isCancelled else { return }
             state = newState
             isRefreshing = false
+            onNewState?(service, newState)
             if case .ok = newState {
                 lastUpdated = .now
             }

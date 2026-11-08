@@ -16,6 +16,10 @@ struct SettingsView: View {
                 .tabItem { Label("Général", systemImage: "gearshape") }
                 .tag(SettingsTab.general)
 
+            AlertsSettingsTab(alerts: app.alertCenter, services: app.services.map(\.service))
+                .tabItem { Label("Alertes", systemImage: "bell") }
+                .tag(SettingsTab.alerts)
+
             ForEach(app.services, id: \.service) { model in
                 ServiceSettingsTab(app: app, model: model)
                     .tabItem { Label(model.service.title, systemImage: model.service.symbol) }
@@ -29,6 +33,7 @@ struct SettingsView: View {
 enum SettingsTab {
     static let storageKey = "settingsTab"
     static let general = "general"
+    static let alerts = "alerts"
 }
 
 // MARK: - Général

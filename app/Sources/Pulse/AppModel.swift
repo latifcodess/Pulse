@@ -11,6 +11,7 @@ final class AppModel {
     let gemini: UsageModel
     let copilot: UsageModel
     let launchAtLogin = LaunchAtLogin()
+    let alertCenter = AlertCenter()
 
     /// Dans l'ordre de la barre des menus et des onglets des réglages.
     var services: [UsageModel] { [claude, chatgpt, gemini, copilot] }
@@ -33,6 +34,11 @@ final class AppModel {
         }
         copilot = UsageModel(service: .copilot) {
             await Task.detached(priority: .utility) { monitor.refreshCopilot() }.value
+        }
+        for model in services {
+            model.onNewState = { [alertCenter] service, state in
+                alertCenter.handle(service: service, state: state)
+            }
         }
     }
 

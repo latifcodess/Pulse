@@ -11,18 +11,17 @@ struct PulseApp: App {
 
     var body: some Scene {
         // Une puce par IA suivie dans la barre des menus, chacune avec son popover.
-        ServiceMenuBarItem(model: app.claude)
-        ServiceMenuBarItem(model: app.chatgpt)
-        ServiceMenuBarItem(model: app.gemini)
-        ServiceMenuBarItem(model: app.copilot)
+        ServiceMenuBarItem(model: app.claude, alerts: app.alertCenter)
+        ServiceMenuBarItem(model: app.chatgpt, alerts: app.alertCenter)
+        ServiceMenuBarItem(model: app.gemini, alerts: app.alertCenter)
+        ServiceMenuBarItem(model: app.copilot, alerts: app.alertCenter)
 
         // Si aucune IA n'est suivie, cette icône garde un accès aux réglages.
-        MenuBarExtra(
-            "Pulse",
-            systemImage: "waveform.path.ecg",
-            isInserted: Binding(get: { app.noServiceShown }, set: { _ in })
-        ) {
+        MenuBarExtra(isInserted: Binding(get: { app.noServiceShown }, set: { _ in })) {
             FallbackMenu()
+        } label: {
+            Image(systemName: "waveform.path.ecg")
+                .opensSettingsOnRequest(from: app.alertCenter)
         }
 
         Window("Réglages", id: WindowID.settings) {
@@ -45,6 +44,7 @@ struct PulseApp: App {
 /// l'utilisateur la retire de la barre (⌘-glisser), l'IA n'est plus suivie.
 private struct ServiceMenuBarItem: Scene {
     let model: UsageModel
+    let alerts: AlertCenter
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(get: { model.isEnabled }, set: { model.isEnabled = $0 })) {
@@ -52,6 +52,7 @@ private struct ServiceMenuBarItem: Scene {
         } label: {
             let bar = model.bar
             MenuBarLabel(symbol: model.service.symbol, text: bar.text, level: bar.level)
+                .opensSettingsOnRequest(from: alerts)
         }
         .menuBarExtraStyle(.window)
     }
@@ -65,6 +66,28 @@ private func showSettings(tab: String, openWindow: OpenWindowAction) {
     // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que la
     // fenêtre passe au premier plan.
     NSApp.activate()
+}
+
+/// Ouvre les réglages quand un clic sur une notification le demande. Les
+/// puces de la barre des menus sont les seules vues toujours présentes : ce
+/// sont elles qui écoutent.
+private struct OpensSettingsOnRequest: ViewModifier {
+    let alerts: AlertCenter
+    @Environment(\.openWindow) private var openWindow
+
+    func body(content: Content) -> some View {
+        content.onChange(of: alerts.settingsRequest) { _, request in
+            if let request {
+                showSettings(tab: request.tab, openWindow: openWindow)
+            }
+        }
+    }
+}
+
+extension View {
+    fileprivate func opensSettingsOnRequest(from alerts: AlertCenter) -> some View {
+        modifier(OpensSettingsOnRequest(alerts: alerts))
+    }
 }
 
 private struct FallbackMenu: View {
