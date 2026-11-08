@@ -5,6 +5,7 @@ uniffi::setup_scaffolding!();
 pub mod chatgpt;
 pub mod claude;
 pub mod claude_web;
+pub mod copilot;
 pub mod http;
 pub mod model;
 pub mod monitor;

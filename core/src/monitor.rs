@@ -10,6 +10,7 @@ use time::OffsetDateTime;
 use crate::chatgpt;
 use crate::claude::{self, fetch_claude_usage};
 use crate::claude_web;
+use crate::copilot::{self, TokenError};
 use crate::http::{FetchError, HttpResponse};
 use crate::model::{AiService, AiState, AiUsage};
 
@@ -21,6 +22,9 @@ pub struct MonitorConfig {
     pub claude_web_base_url: String,
     pub chatgpt_usage_url: String,
     pub codex_dir: Option<PathBuf>,
+    pub copilot_usage_url: String,
+    pub gh_paths: Vec<PathBuf>,
+    pub gh_timeout: Duration,
     pub timeout: Duration,
 }
 
@@ -31,6 +35,9 @@ impl MonitorConfig {
             claude_web_base_url: claude_web::BASE_URL.to_string(),
             chatgpt_usage_url: chatgpt::USAGE_URL.to_string(),
             codex_dir: chatgpt::default_codex_dir(),
+            copilot_usage_url: copilot::USAGE_URL.to_string(),
+            gh_paths: copilot::GH_PATHS.iter().map(PathBuf::from).collect(),
+            gh_timeout: Duration::from_secs(10),
             timeout: Duration::from_secs(10),
         }
     }
@@ -41,6 +48,15 @@ pub struct AiMonitor {
     config: MonitorConfig,
     /// Dernière réponse valide de chaque service, réaffichée sans réseau.
     last: Mutex<HashMap<AiService, AiUsage>>,
+    /// Token de GitHub, gardé en mémoire seulement, pour ne pas relancer gh à
+    /// chaque actualisation.
+    copilot_token: Mutex<Option<String>>,
+}
+
+/// Pourquoi l'usage de Copilot n'a pas pu être récupéré.
+enum CopilotError {
+    Token(TokenError),
+    Fetch(FetchError),
 }
 
 #[uniffi::export]
@@ -86,6 +102,21 @@ impl AiMonitor {
         };
         self.state_from(AiService::ChatGpt, result)
     }
+
+    /// Usage de Copilot avec le token de gh. Appel bloquant.
+    pub fn refresh_copilot(&self) -> AiState {
+        let mut result = self.fetch_copilot(false);
+        if matches!(result, Err(CopilotError::Fetch(FetchError::Expired))) {
+            // Le token gardé en mémoire a pu être remplacé : on le redemande à gh.
+            result = self.fetch_copilot(true);
+        }
+        match result {
+            Ok(usage) => self.state_from(AiService::Copilot, Ok(usage)),
+            Err(CopilotError::Fetch(error)) => self.state_from(AiService::Copilot, Err(error)),
+            Err(CopilotError::Token(TokenError::Failed)) => AiState::Unavailable,
+            Err(CopilotError::Token(_)) => AiState::NotConnected,
+        }
+    }
 }
 
 impl AiMonitor {
@@ -93,6 +124,7 @@ impl AiMonitor {
         Arc::new(Self {
             config,
             last: Mutex::new(HashMap::new()),
+            copilot_token: Mutex::new(None),
         })
     }
 
@@ -113,6 +145,24 @@ impl AiMonitor {
             timeout,
             ..MonitorConfig::production()
         })
+    }
+
+    fn fetch_copilot(&self, fresh_token: bool) -> Result<AiUsage, CopilotError> {
+        let token = self.copilot_token(fresh_token).map_err(CopilotError::Token)?;
+        copilot::fetch_usage(&self.config.copilot_usage_url, &token, self.config.timeout)
+            .map_err(CopilotError::Fetch)
+    }
+
+    /// Le token en mémoire, ou un nouveau demandé à gh.
+    fn copilot_token(&self, fresh: bool) -> Result<String, TokenError> {
+        let mut cached = self.copilot_token.lock().unwrap_or_else(PoisonError::into_inner);
+        if !fresh && let Some(token) = cached.as_ref() {
+            return Ok(token.clone());
+        }
+        *cached = None;
+        let token = copilot::gh_token(&self.config.gh_paths, self.config.gh_timeout)?;
+        *cached = Some(token.clone());
+        Ok(token)
     }
 
     fn state_from(&self, service: AiService, result: Result<AiUsage, FetchError>) -> AiState {

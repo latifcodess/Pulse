@@ -18,7 +18,7 @@ extension AiService {
         case .claude: "sparkle"
         case .chatGpt: "hexagon"
         case .gemini: "diamond"
-        case .copilot: "airplane"
+        case .copilot: "chevron.left.forwardslash.chevron.right"
         }
     }
 
@@ -35,7 +35,8 @@ extension AiService {
         switch self {
         case .claude: "Non connecté. Choisissez une méthode de connexion dans les Réglages."
         case .chatGpt: "Codex n'est pas connecté. Lancez « codex login » dans le Terminal."
-        case .gemini, .copilot: "Non connecté."
+        case .copilot: "GitHub CLI n'est pas connecté. Installez gh, puis lancez « gh auth login » dans le Terminal."
+        case .gemini: "Non connecté."
         }
     }
 
@@ -48,7 +49,8 @@ extension AiService {
             case .claudeAi: "La session claude.ai a expiré. Reconnectez-vous dans les Réglages."
             }
         case .chatGpt: "Le token de Codex a expiré. Lancez Codex pour le renouveler."
-        case .gemini, .copilot: "La connexion a expiré."
+        case .copilot: "Le token de GitHub CLI n'est plus accepté. Lancez « gh auth login » dans le Terminal."
+        case .gemini: "La connexion a expiré."
         }
     }
 }

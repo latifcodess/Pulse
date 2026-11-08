@@ -8,6 +8,7 @@ final class AppModel {
     let claudeAccount: ClaudeAccount
     let claude: UsageModel
     let chatgpt: UsageModel
+    let copilot: UsageModel
 
     init() {
         let monitor = AiMonitor()
@@ -18,6 +19,9 @@ final class AppModel {
         }
         chatgpt = UsageModel(service: .chatGpt) {
             await Task.detached(priority: .utility) { monitor.refreshChatgpt() }.value
+        }
+        copilot = UsageModel(service: .copilot) {
+            await Task.detached(priority: .utility) { monitor.refreshCopilot() }.value
         }
     }
 

@@ -25,6 +25,13 @@ struct PulseApp: App {
         }
         .menuBarExtraStyle(.window)
 
+        MenuBarExtra {
+            PopoverContent(model: app.copilot)
+        } label: {
+            ServiceLabel(model: app.copilot)
+        }
+        .menuBarExtraStyle(.window)
+
         Window("Réglages", id: WindowID.settings) {
             SettingsView(app: app)
         }
