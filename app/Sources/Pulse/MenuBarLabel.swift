@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// La puce d'un service dans la barre des menus : son icône et son %.
+/// La puce d'un service dans la barre des menus : son logo et son %.
 struct MenuBarLabel: View {
-    let symbol: String
+    let logo: NSImage
     let text: String
     let level: UsageLevel
 
@@ -11,19 +11,20 @@ struct MenuBarLabel: View {
         if let color = level.color {
             // La barre des menus affiche ses éléments en monochrome : pour garder
             // la couleur, on la dessine dans une image non « template ».
-            Image(nsImage: Self.coloredImage(symbol: symbol, text: text, color: color))
+            Image(nsImage: Self.coloredImage(logo: logo, text: text, color: color))
         } else {
             HStack {
-                Image(systemName: symbol)
+                Image(nsImage: logo)
                 Text(text)
             }
         }
     }
 
     @MainActor
-    static func coloredImage(symbol: String, text: String, color: Color) -> NSImage {
+    static func coloredImage(logo: NSImage, text: String, color: Color) -> NSImage {
         let content = HStack(spacing: 4) {
-            Image(systemName: symbol)
+            Image(nsImage: logo)
+                .renderingMode(.template)
             Text(text)
         }
         .font(Font(NSFont.menuBarFont(ofSize: 0)))

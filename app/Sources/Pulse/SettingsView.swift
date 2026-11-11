@@ -22,7 +22,7 @@ struct SettingsView: View {
 
             ForEach(app.services, id: \.service) { model in
                 ServiceSettingsTab(app: app, model: model)
-                    .tabItem { Label(model.service.title, systemImage: model.service.symbol) }
+                    .tabItem { Label { Text(model.service.title) } icon: { Image(nsImage: model.service.logo()) } }
                     .tag(model.service.storageKey)
             }
         }
@@ -64,7 +64,7 @@ private struct GeneralSettingsTab: View {
                 ForEach(app.services, id: \.service) { model in
                     @Bindable var model = model
                     Toggle(isOn: $model.isEnabled) {
-                        Label(model.service.title, systemImage: model.service.symbol)
+                        Label { Text(model.service.title) } icon: { Image(nsImage: model.service.logo()) }
                     }
                 }
             } header: {
@@ -352,7 +352,7 @@ private struct BarPreview: View {
         let content = UsageModel.barContent(
             windows: usesSample ? Self.sample : model.windows, settings: model.settings)
         VStack(alignment: .trailing, spacing: 4) {
-            MenuBarLabel(symbol: model.service.symbol, text: content.text, level: content.level)
+            MenuBarLabel(logo: model.service.logo(), text: content.text, level: content.level)
                 .font(Font(NSFont.menuBarFont(ofSize: 0)))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)

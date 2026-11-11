@@ -1,8 +1,8 @@
+import AppKit
 import PulseCore
 import SwiftUI
 
-/// Ce que l'interface affiche pour chaque service. Les icônes sont des symboles
-/// système, pas les logos officiels.
+/// Ce que l'interface affiche pour chaque service.
 extension AiService {
     var title: String {
         switch self {
@@ -13,12 +13,13 @@ extension AiService {
         }
     }
 
-    var symbol: String {
+    /// Le logo, en image « template » colorée par le système ou par SwiftUI.
+    func logo(size: CGFloat = 16) -> NSImage {
         switch self {
-        case .claude: "sparkle"
-        case .chatGpt: "hexagon"
-        case .gemini: "diamond"
-        case .copilot: "chevron.left.forwardslash.chevron.right"
+        case .claude: ServiceLogo.image(.claude, size: size)
+        case .chatGpt: ServiceLogo.image(.chatGpt, size: size)
+        case .gemini: ServiceLogo.image(.gemini, size: size)
+        case .copilot: ServiceLogo.image(.copilot, size: size)
         }
     }
 

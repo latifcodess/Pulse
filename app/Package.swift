@@ -2,6 +2,11 @@
 
 import PackageDescription
 
+// Dossier de libpulse_core.a : celui de « cargo build --release », ou celui
+// indiqué par scripts/package.sh pour le build universel.
+let coreLibDir = Context.environment["PULSE_CORE_LIB_DIR"]
+    ?? Context.packageDirectory + "/../core/target/release"
+
 let package = Package(
     name: "Pulse",
     platforms: [.macOS(.v15)],
@@ -13,7 +18,7 @@ let package = Package(
             name: "PulseCore",
             dependencies: ["pulse_coreFFI"],
             linkerSettings: [
-                .unsafeFlags(["-L", Context.packageDirectory + "/../core/target/release"]),
+                .unsafeFlags(["-L", coreLibDir]),
                 .linkedLibrary("pulse_core"),
             ]
         ),

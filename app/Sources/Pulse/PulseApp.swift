@@ -51,7 +51,7 @@ private struct ServiceMenuBarItem: Scene {
             PopoverContent(model: model)
         } label: {
             let bar = model.bar
-            MenuBarLabel(symbol: model.service.symbol, text: bar.text, level: bar.level)
+            MenuBarLabel(logo: model.service.logo(), text: bar.text, level: bar.level)
                 .opensSettingsOnRequest(from: alerts)
         }
         .menuBarExtraStyle(.window)

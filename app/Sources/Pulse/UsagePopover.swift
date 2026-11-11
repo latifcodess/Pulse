@@ -52,8 +52,8 @@ struct UsagePopover: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: service.symbol)
-                .font(.title2)
+            Image(nsImage: service.logo(size: 20))
+                .renderingMode(.template)
                 .foregroundStyle(service.tint)
                 .frame(width: 32, height: 32)
                 .background(service.tint.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
