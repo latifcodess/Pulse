@@ -86,6 +86,18 @@ final class AlertCenter: NSObject, UNUserNotificationCenterDelegate {
         deliver(content, identifier: "test")
     }
 
+    /// Une notification à propos des mises à jour de Pulse (voir Updater).
+    /// Un clic ouvre l'onglet Général des réglages, où se trouve le bouton
+    /// d'installation.
+    func notifyAboutUpdate(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = [Self.userInfoTabKey: SettingsTab.general]
+        deliver(content, identifier: "update")
+    }
+
     // MARK: - Envoi
 
     private func post(_ event: AlertEvent) {

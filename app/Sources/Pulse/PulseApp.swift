@@ -11,14 +11,14 @@ struct PulseApp: App {
 
     var body: some Scene {
         // Une puce par IA suivie dans la barre des menus, chacune avec son popover.
-        ServiceMenuBarItem(model: app.claude, alerts: app.alertCenter)
-        ServiceMenuBarItem(model: app.chatgpt, alerts: app.alertCenter)
-        ServiceMenuBarItem(model: app.gemini, alerts: app.alertCenter)
-        ServiceMenuBarItem(model: app.copilot, alerts: app.alertCenter)
+        ServiceMenuBarItem(model: app.claude, alerts: app.alertCenter, updater: app.updater)
+        ServiceMenuBarItem(model: app.chatgpt, alerts: app.alertCenter, updater: app.updater)
+        ServiceMenuBarItem(model: app.gemini, alerts: app.alertCenter, updater: app.updater)
+        ServiceMenuBarItem(model: app.copilot, alerts: app.alertCenter, updater: app.updater)
 
         // Si aucune IA n'est suivie, cette icône garde un accès aux réglages.
         MenuBarExtra(isInserted: Binding(get: { app.noServiceShown }, set: { _ in })) {
-            FallbackMenu()
+            FallbackMenu(updater: app.updater)
         } label: {
             Image(systemName: "waveform.path.ecg")
                 .opensSettingsOnRequest(from: app.alertCenter)
@@ -45,10 +45,11 @@ struct PulseApp: App {
 private struct ServiceMenuBarItem: Scene {
     let model: UsageModel
     let alerts: AlertCenter
+    let updater: Updater
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(get: { model.isEnabled }, set: { model.isEnabled = $0 })) {
-            PopoverContent(model: model)
+            PopoverContent(model: model, updater: updater)
         } label: {
             let bar = model.bar
             MenuBarLabel(logo: model.service.logo(), text: bar.text, level: bar.level)
@@ -91,6 +92,7 @@ extension View {
 }
 
 private struct FallbackMenu: View {
+    let updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -99,6 +101,10 @@ private struct FallbackMenu: View {
             showSettings(tab: SettingsTab.general, openWindow: openWindow)
         }
         .keyboardShortcut(",")
+        Button("Rechercher les mises à jour…") {
+            showSettings(tab: SettingsTab.general, openWindow: openWindow)
+            Task { await updater.check(userInitiated: true) }
+        }
         Divider()
         Button("Quitter Pulse") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
@@ -107,6 +113,7 @@ private struct FallbackMenu: View {
 
 private struct PopoverContent: View {
     let model: UsageModel
+    let updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -117,8 +124,10 @@ private struct PopoverContent: View {
             thresholds: model.settings.thresholds,
             refreshInterval: model.refreshInterval,
             isRefreshing: model.isRefreshing,
+            updateVersion: updater.availableUpdate?.version,
             onRefresh: { model.refreshNow() },
             onSettings: { showSettings(tab: model.service.storageKey, openWindow: openWindow) },
+            onUpdate: { showSettings(tab: SettingsTab.general, openWindow: openWindow) },
             onQuit: { NSApplication.shared.terminate(nil) }
         )
     }

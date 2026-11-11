@@ -1,0 +1,23 @@
+{
+  "url": "https://api.github.com/repos/latifcodess/Pulse/releases/1",
+  "html_url": "https://github.com/latifcodess/Pulse/releases/tag/v0.2.0",
+  "tag_name": "v0.2.0",
+  "name": "Pulse 0.2.0",
+  "draft": false,
+  "prerelease": false,
+  "body": "- Mises à jour intégrées\r\n- Corrections\r\n",
+  "assets": [
+    {
+      "name": "Pulse-0.2.0.dmg",
+      "content_type": "application/x-apple-diskimage",
+      "size": 4900000,
+      "browser_download_url": "https://github.com/latifcodess/Pulse/releases/download/v0.2.0/Pulse-0.2.0.dmg"
+    },
+    {
+      "name": "Pulse-0.2.0.dmg.sha256",
+      "content_type": "text/plain",
+      "size": 82,
+      "browser_download_url": "https://github.com/latifcodess/Pulse/releases/download/v0.2.0/Pulse-0.2.0.dmg.sha256"
+    }
+  ]
+}

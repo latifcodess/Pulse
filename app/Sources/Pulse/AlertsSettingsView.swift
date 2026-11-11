@@ -28,7 +28,7 @@ struct AlertsSettingsTab: View {
                 Text("Alertes")
             } footer: {
                 Text("Chaque alerte ne se déclenche qu'une fois, puis se réarme quand la valeur redescend sous le seuil.")
-                    .foregroundStyle(.secondary)
+                    .sectionFooter()
             }
 
             Section {

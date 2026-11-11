@@ -12,6 +12,7 @@ final class AppModel {
     let copilot: UsageModel
     let launchAtLogin = LaunchAtLogin()
     let alertCenter = AlertCenter()
+    let updater = Updater()
 
     /// Dans l'ordre de la barre des menus et des onglets des réglages.
     var services: [UsageModel] { [claude, chatgpt, gemini, copilot] }
@@ -40,6 +41,10 @@ final class AppModel {
                 alertCenter.handle(service: service, state: state)
             }
         }
+        updater.notify = { [alertCenter] title, body in
+            alertCenter.notifyAboutUpdate(title: title, body: body)
+        }
+        updater.start()
     }
 
     func connectClaudeAi(sessionKey: String) {

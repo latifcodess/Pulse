@@ -30,21 +30,24 @@ enum UsageFormat {
         guard let resetsAt else { return "Heure de réinitialisation inconnue" }
         let date = Date(timeIntervalSince1970: TimeInterval(resetsAt))
 
-        let time = date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(locale))
         let day =
             Calendar.current.isDate(date, inSameDayAs: now)
             ? "" : date.formatted(.dateTime.weekday(.abbreviated).locale(locale)) + " "
-        return "Réinitialisé \(day)à \(time) · \(remaining(date.timeIntervalSince(now)))"
+        return "Réinitialisé \(day)à \(hourMinute(date)) · \(remaining(date.timeIntervalSince(now)))"
     }
 
     /// « Limite atteinte vers 15:40 », avec le jour si ce n'est pas aujourd'hui.
     static func projection(_ fullAt: Int64, now: Date) -> String {
         let date = Date(timeIntervalSince1970: TimeInterval(fullAt))
-        let time = date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(locale))
         let day =
             Calendar.current.isDate(date, inSameDayAs: now)
             ? "" : date.formatted(.dateTime.weekday(.abbreviated).locale(locale)) + " "
-        return "Limite atteinte \(day)vers \(time)"
+        return "Limite atteinte \(day)vers \(hourMinute(date))"
+    }
+
+    /// « 17:00 ».
+    static func hourMinute(_ date: Date) -> String {
+        date.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(locale))
     }
 
     /// « dans 45 min », « dans 2 h 15 », « dans 3 j 4 h ».

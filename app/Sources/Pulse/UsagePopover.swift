@@ -11,8 +11,11 @@ struct UsagePopover: View {
     /// Intervalle d'actualisation, en secondes.
     let refreshInterval: Int
     let isRefreshing: Bool
+    /// Version de Pulse disponible, s'il y en a une.
+    let updateVersion: String?
     let onRefresh: () -> Void
     let onSettings: () -> Void
+    let onUpdate: () -> Void
     let onQuit: () -> Void
 
     var body: some View {
@@ -82,6 +85,15 @@ struct UsagePopover: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
+            if let updateVersion {
+                Button(action: onUpdate) {
+                    Label("Pulse \(updateVersion)", systemImage: "arrow.down.circle.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.tint)
+                .help("Une mise à jour de Pulse est disponible")
+            }
             iconButton("Réglages", systemImage: "gearshape", action: onSettings)
             iconButton("Quitter", systemImage: "power", action: onQuit)
         }

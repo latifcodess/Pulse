@@ -32,6 +32,9 @@ IA prises en charge : **Claude**, **ChatGPT** (Codex), **Gemini** et
   - **onglet Alertes** : modifier les alertes ou en ajouter ;
   - **ouverture au démarrage**.
 - **Hors ligne** : les dernières valeurs connues restent affichées.
+- **Mises à jour intégrées** : recherche automatique une fois par jour (ou
+  à la demande), puis installation et relance en un clic. Chaque
+  téléchargement est vérifié par son empreinte SHA-256.
 - Pas d'icône dans le Dock. Interface en français.
 
 ## Comment Pulse se connecte
@@ -98,6 +101,21 @@ open build/Pulse.app    # lancer l'app
 Comme la signature est ad hoc, macOS redemande l'accès au Trousseau après
 chaque build : cliquez sur « Toujours autoriser ».
 
+## Publier une nouvelle version
+
+Pulse cherche ses mises à jour dans les releases GitHub de
+`latifcodess/Pulse` (le dépôt doit être public).
+
+1. Augmentez `CFBundleShortVersionString` dans `app/Info.plist`
+   (par ex. `0.2.0`).
+2. Lancez `./scripts/package.sh`. Il produit dans `build/release/` le DMG
+   et son empreinte : `Pulse-0.2.0.dmg` et `Pulse-0.2.0.dmg.sha256`.
+3. Sur GitHub, créez une release avec le tag **`v0.2.0`**, des notes de
+   version (elles s'affichent dans Pulse) et **les deux fichiers**.
+
+Une release sans fichier `.sha256` est refusée. Les brouillons et les
+préversions sont ignorés.
+
 ## Architecture
 
 ```
@@ -113,6 +131,7 @@ Pulse/
 │   │   ├── copilot.rs       GitHub CLI : token, quotas
 │   │   ├── projection.rs    Historique et régression linéaire
 │   │   ├── alerts.rs        Règles d'alerte et moteur de déclenchement
+│   │   ├── update.rs        Releases GitHub, téléchargement vérifié
 │   │   └── monitor.rs       AiMonitor : point d'entrée exposé à Swift
 │   └── tests/               Tests d'intégration et fixtures JSON
 ├── app/                     Swift 6 : SwiftUI + AppKit

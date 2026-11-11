@@ -26,7 +26,17 @@ struct SettingsView: View {
                     .tag(model.service.storageKey)
             }
         }
-        .frame(width: 520, height: 660)
+        .frame(width: 520, height: 700)
+    }
+}
+
+extension View {
+    /// Une note sous une section : en gris, alignée à gauche comme le reste
+    /// du formulaire (par défaut, macOS l'aligne à droite).
+    func sectionFooter() -> some View {
+        foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -71,8 +81,10 @@ private struct GeneralSettingsTab: View {
                 Text("IA suivies")
             } footer: {
                 Text("Si aucune IA n'est suivie, l'icône de Pulse reste dans la barre des menus pour rouvrir ces réglages.")
-                    .foregroundStyle(.secondary)
+                    .sectionFooter()
             }
+
+            UpdatesSection(updater: app.updater)
 
             Section {
                 Button("Quitter Pulse") { NSApplication.shared.terminate(nil) }
@@ -80,6 +92,101 @@ private struct GeneralSettingsTab: View {
         }
         .formStyle(.grouped)
         .onAppear { launchAtLogin.reload() }
+    }
+}
+
+// MARK: - Mises à jour
+
+private struct UpdatesSection: View {
+    @Bindable var updater: Updater
+
+    var body: some View {
+        Section {
+            LabeledContent("Version installée", value: updater.currentVersion)
+            Toggle("Rechercher automatiquement (une fois par jour)", isOn: $updater.automaticChecks)
+
+            switch updater.phase {
+            case .available(let info):
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Pulse \(info.version) est disponible", systemImage: "arrow.down.circle.fill")
+                        .font(.headline)
+                    if !info.notes.isEmpty {
+                        Text(info.notes)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(8)
+                            .textSelection(.enabled)
+                    }
+                    HStack {
+                        Button("Installer et relancer") {
+                            Task { await updater.install(info) }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        if let page = URL(string: info.pageUrl), !info.pageUrl.isEmpty {
+                            Link("Voir sur GitHub", destination: page)
+                        }
+                    }
+                }
+            case .downloading(let info):
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("Téléchargement de Pulse \(info.version)…")
+                }
+            case .installing:
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("Installation… Pulse va redémarrer.")
+                }
+            default:
+                LabeledContent {
+                    if case .checking = updater.phase {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button("Rechercher maintenant") {
+                            Task { await updater.check(userInitiated: true) }
+                        }
+                    }
+                } label: {
+                    UpdateStatusText(updater: updater)
+                }
+            }
+        } header: {
+            Text("Mises à jour")
+        } footer: {
+            Text("Les mises à jour viennent des releases GitHub de Pulse. Chaque téléchargement est vérifié (empreinte SHA-256) avant l'installation.")
+                .sectionFooter()
+        }
+    }
+}
+
+private struct UpdateStatusText: View {
+    let updater: Updater
+
+    var body: some View {
+        switch updater.phase {
+        case .checking:
+            Text("Recherche en cours…")
+        case .upToDate:
+            Label {
+                Text(upToDateText)
+            } icon: {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            }
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        default:
+            Text("Pas encore recherché")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// « Pulse est à jour (vérifié à 14:32) ».
+    private var upToDateText: String {
+        guard let lastCheck = updater.lastCheck else { return "Pulse est à jour" }
+        return "Pulse est à jour (vérifié à \(UsageFormat.hourMinute(lastCheck)))"
     }
 }
 
@@ -98,7 +205,7 @@ private struct ServiceSettingsTab: View {
                 Toggle("Suivre \(service.title)", isOn: $model.isEnabled)
             } footer: {
                 Text("Sans suivi, la puce est retirée de la barre des menus et Pulse ne fait plus aucune requête pour \(service.title).")
-                    .foregroundStyle(.secondary)
+                    .sectionFooter()
             }
 
             Section("Connexion") {
@@ -149,7 +256,7 @@ private struct ServiceSettingsTab: View {
                 Text("Actualisation et alertes")
             } footer: {
                 Text("Les seuils portent sur le pourcentage utilisé, même si la puce affiche le restant.")
-                    .foregroundStyle(.secondary)
+                    .sectionFooter()
             }
         }
         .formStyle(.grouped)

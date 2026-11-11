@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build universel (Apple Silicon + Intel) et image disque :
-# produit build/release/Pulse.app et build/release/Pulse-<version>.dmg.
+# Build universel (Apple Silicon + Intel) et image disque : produit, dans
+# build/release/, Pulse.app, Pulse-<version>.dmg et Pulse-<version>.dmg.sha256.
 #
 # Chaque architecture est compilée séparément, puis les deux sont réunies
 # avec lipo (pas besoin de Xcode, les Command Line Tools suffisent).
@@ -27,14 +27,15 @@ lipo -create \
 generate_bindings target/aarch64-apple-darwin/release/libpulse_core.a
 
 echo "==> Compilation de app/ pour Apple Silicon et Intel"
-# Un dossier de build à part, pour ne pas mélanger avec scripts/build.sh.
-SCRATCH="$ROOT/build/.swiftpm-universal"
 binaries=()
 for arch in arm64 x86_64; do
+    # Un dossier de build par architecture : avec Xcode installé, SwiftPM range
+    # sinon les deux builds au même endroit, et le second écrase le premier.
+    scratch="$ROOT/build/.swiftpm-$arch"
     (cd "$ROOT/app" && PULSE_CORE_LIB_DIR="$UNIVERSAL_LIB_DIR" \
-        swift build -c release --arch "$arch" --scratch-path "$SCRATCH")
+        swift build -c release --arch "$arch" --scratch-path "$scratch")
     bin_dir="$(cd "$ROOT/app" && PULSE_CORE_LIB_DIR="$UNIVERSAL_LIB_DIR" \
-        swift build -c release --arch "$arch" --scratch-path "$SCRATCH" --show-bin-path)"
+        swift build -c release --arch "$arch" --scratch-path "$scratch" --show-bin-path)"
     binaries+=("$bin_dir/Pulse")
 done
 lipo -create "${binaries[@]}" -output "$RELEASE/Pulse"
@@ -52,4 +53,9 @@ ln -s /Applications "$STAGING/Applications"
 DMG="$RELEASE/Pulse-$VERSION.dmg"
 hdiutil create -volname "Pulse" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
 
+# L'empreinte du DMG. Pulse la télécharge avec la mise à jour et refuse
+# d'installer un DMG qui ne lui correspond pas.
+(cd "$RELEASE" && shasum -a 256 "Pulse-$VERSION.dmg" > "Pulse-$VERSION.dmg.sha256")
+
 echo "==> Terminé : $DMG"
+echo "    Pour publier : release GitHub « v$VERSION », avec le DMG et son fichier .sha256."
