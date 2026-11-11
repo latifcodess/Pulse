@@ -103,7 +103,7 @@ private struct UpdatesSection: View {
     var body: some View {
         Section {
             LabeledContent("Version installée", value: updater.currentVersion)
-            Toggle("Rechercher automatiquement (une fois par jour)", isOn: $updater.automaticChecks)
+            Toggle("Rechercher automatiquement (au lancement, puis chaque jour)", isOn: $updater.automaticChecks)
 
             switch updater.phase {
             case .available(let info):
@@ -143,7 +143,7 @@ private struct UpdatesSection: View {
                         ProgressView().controlSize(.small)
                     } else {
                         Button("Rechercher maintenant") {
-                            Task { await updater.check(userInitiated: true) }
+                            Task { await updater.check(.user) }
                         }
                     }
                 } label: {

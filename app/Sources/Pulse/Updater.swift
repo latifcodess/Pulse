@@ -26,8 +26,13 @@ final class Updater {
     private(set) var phase: Phase = .idle
     /// Heure de la dernière recherche réussie.
     private(set) var lastCheck: Date?
+    /// La dernière nouvelle version trouvée, gardée pendant le téléchargement.
+    private(set) var foundUpdate: UpdateInfo?
+    /// Demande d'ouverture de la fenêtre de mise à jour. Les vues de la barre
+    /// des menus l'observent et ouvrent la fenêtre.
+    private(set) var windowRequest: UUID?
 
-    /// Recherche automatique, une fois par jour.
+    /// Recherche automatique : au lancement de Pulse, puis une fois par jour.
     var automaticChecks: Bool {
         didSet { UserDefaults.standard.set(automaticChecks, forKey: Self.automaticKey) }
     }
@@ -39,6 +44,8 @@ final class Updater {
 
     private static let automaticKey = "updates.automatic"
     private static let notifiedVersionKey = "updates.notifiedVersion"
+    /// Version que l'utilisateur a choisi d'ignorer : pas de fenêtre au lancement.
+    private static let skippedVersionKey = "updates.skippedVersion"
     /// Argument de lancement ajouté par le script de relance, après une mise à jour.
     private static let updatedFlag = "--updated"
     /// Début du nom des copies de travail, posées à côté de l'app.
@@ -63,15 +70,40 @@ final class Updater {
         if case .available(let info) = phase { info } else { nil }
     }
 
+    /// Une recherche, un téléchargement ou une installation est en cours.
+    var isBusy: Bool {
+        switch phase {
+        case .checking, .downloading, .installing: true
+        default: false
+        }
+    }
+
+    func showWindow() {
+        windowRequest = UUID()
+    }
+
+    /// « Ignorer cette version » : plus de fenêtre au lancement pour elle.
+    /// Elle reste proposée dans les réglages.
+    func skip(_ info: UpdateInfo) {
+        UserDefaults.standard.set(info.version, forKey: Self.skippedVersionKey)
+    }
+
     // MARK: - Recherche
 
-    /// `userInitiated` : lancée par un bouton. Le résultat est alors toujours
-    /// affiché, que ce soit « à jour » ou une erreur.
-    func check(userInitiated: Bool) async {
-        switch phase {
-        case .checking, .downloading, .installing: return
-        default: break
-        }
+    /// Pourquoi une recherche a lieu.
+    enum CheckReason {
+        /// Au lancement de Pulse : une nouvelle version ouvre la fenêtre.
+        case launch
+        /// Recherche quotidienne : une nouvelle version donne une notification.
+        case daily
+        /// Bouton « Rechercher » : le résultat est toujours affiché.
+        case user
+    }
+
+    /// Renvoie faux si GitHub n'a pas pu être joint (pas de réseau).
+    @discardableResult
+    func check(_ reason: CheckReason) async -> Bool {
+        guard !isBusy else { return true }
         let previous = phase
         phase = .checking
         let version = currentVersion
@@ -80,29 +112,47 @@ final class Updater {
         switch result {
         case .upToDate:
             lastCheck = .now
+            foundUpdate = nil
             phase = .upToDate
         case .available(let info):
             lastCheck = .now
+            foundUpdate = info
             phase = .available(info)
-            if !userInitiated {
+            switch reason {
+            case .launch:
+                if UserDefaults.standard.string(forKey: Self.skippedVersionKey) != info.version {
+                    showWindow()
+                }
+            case .daily:
                 notifyOnce(about: info)
+            case .user:
+                break
             }
-        case .failed(let reason):
-            Self.logger.notice("Recherche de mise à jour : \(String(describing: reason), privacy: .public)")
+        case .failed(let failure):
+            Self.logger.notice("Recherche de mise à jour : \(String(describing: failure), privacy: .public)")
             // Une recherche automatique qui échoue reste discrète : l'affichage
             // ne change pas (une mise à jour déjà trouvée reste proposée).
-            phase = userInitiated ? .failed(Self.message(for: reason)) : previous
+            phase = reason == .user ? .failed(Self.message(for: failure)) : previous
+            return failure != .offline
         }
+        return true
     }
 
     private func automaticLoop() async {
-        // Laisse l'app démarrer avant la première recherche.
-        try? await Task.sleep(for: .seconds(15))
-        while !Task.isCancelled {
-            if automaticChecks {
-                await check(userInitiated: false)
+        // Au lancement, surtout à l'ouverture de session, le réseau n'est pas
+        // toujours prêt : on réessaie toutes les 30 s pendant 5 min.
+        try? await Task.sleep(for: .seconds(3))
+        if automaticChecks {
+            for _ in 0..<10 {
+                if await check(.launch) { break }
+                try? await Task.sleep(for: .seconds(30))
             }
+        }
+        while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(24 * 3600))
+            if automaticChecks {
+                await check(.daily)
+            }
         }
     }
 
@@ -110,14 +160,14 @@ final class Updater {
     private func notifyOnce(about info: UpdateInfo) {
         guard UserDefaults.standard.string(forKey: Self.notifiedVersionKey) != info.version else { return }
         UserDefaults.standard.set(info.version, forKey: Self.notifiedVersionKey)
-        notify?("Pulse \(info.version) est disponible", "Cliquez pour l'installer depuis les réglages.")
+        notify?("Pulse \(info.version) est disponible", "Cliquez pour l'installer.")
     }
 
     // MARK: - Installation
 
     func install(_ info: UpdateInfo) async {
         // Un deuxième clic pendant le téléchargement ne relance rien.
-        guard case .available = phase else { return }
+        guard !isBusy else { return }
         phase = .downloading(info)
         let directory = Self.downloadDirectory.path
         let outcome = await Task.detached(priority: .userInitiated) {

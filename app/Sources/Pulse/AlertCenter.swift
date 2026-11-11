@@ -26,6 +26,8 @@ final class AlertCenter: NSObject, UNUserNotificationCenterDelegate {
 
     @ObservationIgnored private let engine = AlertEngine()
     private static let storageKey = "alertRules"
+    /// Valeur spéciale de « onglet » : ouvre la fenêtre de mise à jour.
+    static let updateWindowTab = "update-window"
     /// Clé, dans la notification, de l'onglet des réglages à ouvrir.
     private nonisolated static let userInfoTabKey = "settingsTab"
     private nonisolated static let logger = Logger(subsystem: "ch.latifcodess.pulse", category: "alerts")
@@ -87,14 +89,13 @@ final class AlertCenter: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// Une notification à propos des mises à jour de Pulse (voir Updater).
-    /// Un clic ouvre l'onglet Général des réglages, où se trouve le bouton
-    /// d'installation.
+    /// Un clic ouvre la fenêtre de mise à jour.
     func notifyAboutUpdate(title: String, body: String) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
-        content.userInfo = [Self.userInfoTabKey: SettingsTab.general]
+        content.userInfo = [Self.userInfoTabKey: Self.updateWindowTab]
         deliver(content, identifier: "update")
     }
 

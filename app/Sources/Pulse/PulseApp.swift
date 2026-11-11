@@ -3,6 +3,7 @@ import SwiftUI
 enum WindowID {
     static let settings = "settings"
     static let claudeLogin = "claude-login"
+    static let update = "update"
 }
 
 @main
@@ -21,13 +22,24 @@ struct PulseApp: App {
             FallbackMenu(updater: app.updater)
         } label: {
             Image(systemName: "waveform.path.ecg")
-                .opensSettingsOnRequest(from: app.alertCenter)
+                .opensWindowsOnRequest(alerts: app.alertCenter, updater: app.updater)
         }
 
         Window("Réglages", id: WindowID.settings) {
             SettingsView(app: app)
         }
         .windowResizability(.contentSize)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+
+        Window("Mise à jour de Pulse", id: WindowID.update) {
+            UpdateWindow(updater: app.updater)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        // Au-dessus des autres fenêtres : à l'ouverture de session, d'autres
+        // apps se lancent en même temps et la cacheraient sinon.
+        .windowLevel(.floating)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
 
@@ -53,7 +65,7 @@ private struct ServiceMenuBarItem: Scene {
         } label: {
             let bar = model.bar
             MenuBarLabel(logo: model.service.logo(), text: bar.text, level: bar.level)
-                .opensSettingsOnRequest(from: alerts)
+                .opensWindowsOnRequest(alerts: alerts, updater: updater)
         }
         .menuBarExtraStyle(.window)
     }
@@ -69,25 +81,43 @@ private func showSettings(tab: String, openWindow: OpenWindowAction) {
     NSApp.activate()
 }
 
-/// Ouvre les réglages quand un clic sur une notification le demande. Les
-/// puces de la barre des menus sont les seules vues toujours présentes : ce
-/// sont elles qui écoutent.
-private struct OpensSettingsOnRequest: ViewModifier {
+/// Ouvre la fenêtre de mise à jour au premier plan.
+@MainActor
+private func showUpdateWindow(openWindow: OpenWindowAction) {
+    openWindow(id: WindowID.update)
+    NSApp.activate()
+}
+
+/// Ouvre une fenêtre quand on la demande hors d'une vue : clic sur une
+/// notification, ou mise à jour trouvée au lancement. Les puces de la barre
+/// des menus sont les seules vues toujours présentes : ce sont elles qui
+/// écoutent.
+private struct OpensWindowsOnRequest: ViewModifier {
     let alerts: AlertCenter
+    let updater: Updater
     @Environment(\.openWindow) private var openWindow
 
     func body(content: Content) -> some View {
-        content.onChange(of: alerts.settingsRequest) { _, request in
-            if let request {
-                showSettings(tab: request.tab, openWindow: openWindow)
+        content
+            .onChange(of: alerts.settingsRequest) { _, request in
+                guard let request else { return }
+                if request.tab == AlertCenter.updateWindowTab {
+                    showUpdateWindow(openWindow: openWindow)
+                } else {
+                    showSettings(tab: request.tab, openWindow: openWindow)
+                }
             }
-        }
+            .onChange(of: updater.windowRequest) { _, request in
+                if request != nil {
+                    showUpdateWindow(openWindow: openWindow)
+                }
+            }
     }
 }
 
 extension View {
-    fileprivate func opensSettingsOnRequest(from alerts: AlertCenter) -> some View {
-        modifier(OpensSettingsOnRequest(alerts: alerts))
+    fileprivate func opensWindowsOnRequest(alerts: AlertCenter, updater: Updater) -> some View {
+        modifier(OpensWindowsOnRequest(alerts: alerts, updater: updater))
     }
 }
 
@@ -102,8 +132,8 @@ private struct FallbackMenu: View {
         }
         .keyboardShortcut(",")
         Button("Rechercher les mises à jour…") {
-            showSettings(tab: SettingsTab.general, openWindow: openWindow)
-            Task { await updater.check(userInitiated: true) }
+            showUpdateWindow(openWindow: openWindow)
+            Task { await updater.check(.user) }
         }
         Divider()
         Button("Quitter Pulse") { NSApplication.shared.terminate(nil) }
@@ -127,7 +157,7 @@ private struct PopoverContent: View {
             updateVersion: updater.availableUpdate?.version,
             onRefresh: { model.refreshNow() },
             onSettings: { showSettings(tab: model.service.storageKey, openWindow: openWindow) },
-            onUpdate: { showSettings(tab: SettingsTab.general, openWindow: openWindow) },
+            onUpdate: { showUpdateWindow(openWindow: openWindow) },
             onQuit: { NSApplication.shared.terminate(nil) }
         )
     }
