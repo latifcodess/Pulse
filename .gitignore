@@ -14,3 +14,6 @@ app/Sources/pulse_coreFFI/
 
 # Projet Xcode généré par XcodeGen (voir project.yml)
 Pulse.xcodeproj/
+
+# Réglages personnels de VS Code
+.vscode/
