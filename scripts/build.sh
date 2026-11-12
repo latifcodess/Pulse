@@ -1,16 +1,25 @@
 #!/usr/bin/env bash
-# Build complet pour ce Mac : produit build/Pulse.app, signé ad hoc.
+# Build complet avec Xcode : produit build/Pulse.app (universelle, signée ad hoc).
+#
+# Le projet Xcode est généré depuis project.yml par XcodeGen ; la phase
+# « Run Script » du projet compile le cœur Rust et régénère les bindings.
+# Prérequis : brew install xcodegen ; rustup target add aarch64-apple-darwin x86_64-apple-darwin
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-echo "==> Compilation de core/ (lib statique Rust)"
-(cd "$ROOT/core" && cargo build --release)
+echo "==> Génération du projet Xcode (XcodeGen)"
+(cd "$ROOT" && xcodegen generate --quiet)
 
-generate_bindings target/release/libpulse_core.a
+echo "==> Compilation (xcodebuild, Release)"
+xcodebuild \
+    -project "$ROOT/Pulse.xcodeproj" \
+    -scheme Pulse \
+    -configuration Release \
+    -derivedDataPath "$ROOT/build/DerivedData" \
+    -quiet \
+    build
 
-echo "==> Compilation de app/ (Swift)"
-(cd "$ROOT/app" && swift build -c release)
-BIN_DIR="$(cd "$ROOT/app" && swift build -c release --show-bin-path)"
-
-assemble_app "$BIN_DIR/Pulse" "$ROOT/build/Pulse.app"
+rm -rf "$ROOT/build/Pulse.app"
+ditto "$ROOT/build/DerivedData/Build/Products/Release/Pulse.app" "$ROOT/build/Pulse.app"
+echo "==> Architectures : $(lipo -archs "$ROOT/build/Pulse.app/Contents/MacOS/Pulse")"
 echo "==> Terminé : $ROOT/build/Pulse.app"

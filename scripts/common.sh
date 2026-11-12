@@ -1,11 +1,31 @@
-# Étapes communes à build.sh et package.sh. À inclure avec « source ».
+# Étapes communes aux scripts de Pulse. À inclure avec « source ».
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Compile aussi le code C des dépendances Rust pour la même cible que l'app.
 export MACOSX_DEPLOYMENT_TARGET=15.0
+# Xcode lance ses scripts avec un PATH minimal : on ajoute cargo (rustup) et Homebrew.
+export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# Génère les bindings Swift à partir d'une lib statique Rust.
-# Usage : generate_bindings <chemin de libpulse_core.a>
+# La lib statique universelle (Apple Silicon + Intel), liée à l'app.
+UNIVERSAL_LIB_DIR="$ROOT/core/target/universal/release"
+
+# Compile le cœur Rust pour les deux architectures, puis les réunit avec lipo.
+# Prérequis : rustup target add aarch64-apple-darwin x86_64-apple-darwin
+build_core() {
+    echo "==> Compilation de core/ pour Apple Silicon et Intel"
+    for target in aarch64-apple-darwin x86_64-apple-darwin; do
+        (cd "$ROOT/core" && cargo build --release --target "$target")
+    done
+    mkdir -p "$UNIVERSAL_LIB_DIR"
+    lipo -create \
+        "$ROOT/core/target/aarch64-apple-darwin/release/libpulse_core.a" \
+        "$ROOT/core/target/x86_64-apple-darwin/release/libpulse_core.a" \
+        -output "$UNIVERSAL_LIB_DIR/libpulse_core.a"
+}
+
+# Génère les bindings Swift à partir d'une lib statique Rust. Un fichier
+# n'est réécrit que s'il a changé : sinon Xcode recompilerait tout à chaque build.
+# Usage : generate_bindings <chemin de libpulse_core.a, relatif à core/>
 generate_bindings() {
     local library="$1"
     local swift_dir="$ROOT/app/Sources/PulseCore"
@@ -19,13 +39,17 @@ generate_bindings() {
         --language swift \
         --out-dir "$generated")
 
-    rm -rf "$swift_dir" "$ffi_dir"
     mkdir -p "$swift_dir" "$ffi_dir"
-    mv "$generated/pulse_core.swift" "$swift_dir/"
-    mv "$generated/pulse_coreFFI.h" "$ffi_dir/"
-    # SwiftPM attend exactement le nom module.modulemap.
-    mv "$generated/pulse_coreFFI.modulemap" "$ffi_dir/module.modulemap"
+    update_file "$generated/pulse_core.swift" "$swift_dir/pulse_core.swift"
+    update_file "$generated/pulse_coreFFI.h" "$ffi_dir/pulse_coreFFI.h"
+    # Le compilateur attend exactement le nom module.modulemap.
+    update_file "$generated/pulse_coreFFI.modulemap" "$ffi_dir/module.modulemap"
     rm -rf "$generated"
+}
+
+# Copie $1 vers $2, seulement si le contenu diffère.
+update_file() {
+    cmp -s "$1" "$2" || cp "$1" "$2"
 }
 
 # Génère build/AppIcon.icns, seulement si le script de l'icône a changé.
@@ -36,22 +60,4 @@ make_icon() {
         mkdir -p "$ROOT/build"
         swift "$ROOT/scripts/make-icon.swift" "$icon" >/dev/null
     fi
-}
-
-# Assemble et signe (ad hoc) l'app à partir d'un exécutable.
-# Usage : assemble_app <exécutable> <chemin de Pulse.app>
-assemble_app() {
-    local binary="$1"
-    local app="$2"
-    make_icon
-
-    echo "==> Assemblage de $(basename "$app")"
-    rm -rf "$app"
-    mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-    cp "$binary" "$app/Contents/MacOS/Pulse"
-    cp "$ROOT/app/Info.plist" "$app/Contents/Info.plist"
-    cp "$ROOT/build/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
-
-    echo "==> Signature ad hoc"
-    codesign --force --sign - "$app"
 }

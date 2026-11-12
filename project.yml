@@ -1,0 +1,85 @@
+# Projet Xcode de Pulse, décrit pour XcodeGen.
+# « xcodegen generate » produit Pulse.xcodeproj (non versionné).
+
+name: Pulse
+
+options:
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: fr
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    # Signature ad hoc, sans compte développeur.
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    # Les scripts de build écrivent dans core/target et app/Sources.
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    # Le module C « pulse_coreFFI » (en-tête + module.modulemap générés par UniFFI).
+    SWIFT_INCLUDE_PATHS: $(SRCROOT)/app/Sources/pulse_coreFFI
+
+targets:
+  # Les bindings Swift générés par UniFFI, au-dessus de la lib Rust.
+  PulseCore:
+    type: library.static
+    platform: macOS
+    sources:
+      # Généré par la phase ci-dessous : peut manquer avant le premier build.
+      - path: app/Sources/PulseCore/pulse_core.swift
+        optional: true
+    preBuildScripts:
+      - name: Cœur Rust et bindings UniFFI
+        script: '"${SRCROOT}/scripts/build-core.sh"'
+        # Toujours lancé : cargo ne recompile que ce qui a changé.
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(SRCROOT)/app/Sources/PulseCore/pulse_core.swift
+          - $(SRCROOT)/app/Sources/pulse_coreFFI/pulse_coreFFI.h
+          - $(SRCROOT)/app/Sources/pulse_coreFFI/module.modulemap
+          - $(SRCROOT)/core/target/universal/release/libpulse_core.a
+
+  # L'app de barre des menus.
+  Pulse:
+    type: application
+    platform: macOS
+    sources:
+      - path: app/Sources/Pulse
+      - path: build/AppIcon.icns
+        optional: true
+        buildPhase: resources
+    dependencies:
+      - target: PulseCore
+    preBuildScripts:
+      - name: Icône de l'app
+        script: '"${SRCROOT}/scripts/build-icon.sh"'
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(SRCROOT)/build/AppIcon.icns
+    settings:
+      base:
+        PRODUCT_NAME: Pulse
+        PRODUCT_BUNDLE_IDENTIFIER: ch.latifcodess.pulse
+        # Info.plist existant : LSUIElement (pas d'icône dans le Dock), version…
+        INFOPLIST_FILE: app/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        # Pas de sandbox : Pulse lit ~/.codex et ~/.gemini, et lance gh.
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        # La lib statique du cœur Rust (universelle, produite par build-core.sh).
+        LIBRARY_SEARCH_PATHS: $(SRCROOT)/core/target/universal/release
+        OTHER_LDFLAGS: -lpulse_core
+        COMBINE_HIDPI_IMAGES: YES
+      configs:
+        Release:
+          # Comme les builds précédents (SwiftPM) : pas de droit de débogage,
+          # code inutilisé et symboles retirés du binaire.
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          DEAD_CODE_STRIPPING: YES
+          DEPLOYMENT_POSTPROCESSING: YES
+          STRIP_INSTALLED_PRODUCT: YES
+          STRIP_STYLE: all
+    scheme: {}

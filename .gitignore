@@ -11,3 +11,6 @@ build/
 core/target/
 app/Sources/PulseCore/
 app/Sources/pulse_coreFFI/
+
+# Projet Xcode généré par XcodeGen (voir project.yml)
+Pulse.xcodeproj/

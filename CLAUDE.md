@@ -6,7 +6,8 @@ App macOS de barre des menus qui affiche le % utilisé des limites IA
 ## Structure
 - core/ : Rust, bibliothèque pulse_core (réseau, parsing, cache, alertes, projection), exposée à Swift via UniFFI
 - app/ : Swift 6, SwiftUI + AppKit, macOS 15+, sans icône dans le Dock
-- scripts/build.sh : build complet → build/Pulse.app
+- project.yml : projet Xcode décrit pour XcodeGen (Pulse.xcodeproj est généré, non versionné)
+- scripts/build.sh : build complet avec xcodebuild → build/Pulse.app
 - Tests : cd core && cargo test
 
 ## Règles

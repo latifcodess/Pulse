@@ -77,8 +77,9 @@ Configuration requise : macOS 15 ou plus récent, Mac Apple Silicon ou Intel.
 
 ### Prérequis
 
-- **Command Line Tools** de Xcode avec Swift 6.3 ou plus récent
-  (`xcode-select --install`). Xcode complet n'est pas nécessaire.
+- **Xcode** (Swift 6.3 ou plus récent).
+- **XcodeGen**, qui génère le projet Xcode depuis `project.yml` :
+  `brew install xcodegen`.
 - **Rust** via [rustup](https://rustup.rs), avec les deux cibles macOS :
 
   ```sh
@@ -88,15 +89,20 @@ Configuration requise : macOS 15 ou plus récent, Mac Apple Silicon ou Intel.
 ### Commandes
 
 ```sh
-./scripts/build.sh      # build pour ce Mac      → build/Pulse.app
-./scripts/package.sh    # build universel + DMG  → build/release/Pulse-<version>.dmg
+./scripts/build.sh      # build universel avec Xcode → build/Pulse.app
+./scripts/package.sh    # build + DMG               → build/release/Pulse-<version>.dmg
 cd core && cargo test   # tests du cœur Rust
 open build/Pulse.app    # lancer l'app
 ```
 
-`build.sh` doit être lancé une première fois avant d'ouvrir `app/` dans un
-éditeur. C'est lui qui génère les bindings Swift (`app/Sources/PulseCore` et
-`app/Sources/pulse_coreFFI`), qui ne sont pas versionnés.
+Pour travailler dans Xcode : `xcodegen generate`, puis ouvrez
+`Pulse.xcodeproj` (généré, non versionné : modifiez `project.yml`, pas le
+projet). À chaque build, la phase « Cœur Rust et bindings UniFFI » compile
+`core/` pour Apple Silicon et Intel (`scripts/build-core.sh`) et régénère
+les bindings Swift (`app/Sources/PulseCore` et `app/Sources/pulse_coreFFI`,
+non versionnés).
+
+`app/Package.swift` ne sert plus qu'à l'éditeur (SourceKit dans VS Code).
 
 Comme la signature est ad hoc, macOS redemande l'accès au Trousseau après
 chaque build : cliquez sur « Toujours autoriser ».
@@ -139,10 +145,13 @@ Pulse/
 │       ├── Pulse/           L'app (barre des menus, panneau, réglages…)
 │       ├── PulseCore/       Bindings Swift générés par UniFFI
 │       └── pulse_coreFFI/   En-tête C généré
+├── project.yml              Projet Xcode (XcodeGen)
 └── scripts/
-    ├── build.sh             Build pour ce Mac
-    ├── package.sh           Build universel + DMG
-    ├── common.sh            Étapes partagées par les deux scripts
+    ├── build.sh             Build universel avec Xcode
+    ├── package.sh           Build + DMG
+    ├── build-core.sh        Phase Xcode : cœur Rust + bindings UniFFI
+    ├── build-icon.sh        Phase Xcode : icône de l'app
+    ├── common.sh            Étapes partagées par les scripts
     └── make-icon.swift      Génère l'icône de l'app
 ```
 

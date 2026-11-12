@@ -2,10 +2,11 @@
 
 import PackageDescription
 
-// Dossier de libpulse_core.a : celui de « cargo build --release », ou celui
-// indiqué par scripts/package.sh pour le build universel.
+// Ce Package.swift ne sert plus qu'à l'éditeur (SourceKit, VS Code) : l'app
+// se compile avec le projet Xcode (project.yml). Dossier de libpulse_core.a :
+// la lib universelle produite par scripts/build-core.sh.
 let coreLibDir = Context.environment["PULSE_CORE_LIB_DIR"]
-    ?? Context.packageDirectory + "/../core/target/release"
+    ?? Context.packageDirectory + "/../core/target/universal/release"
 
 let package = Package(
     name: "Pulse",
