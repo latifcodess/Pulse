@@ -184,3 +184,58 @@ fn collect_session_files(dir: &Path, depth: usize, files: &mut Vec<(SystemTime, 
         }
     }
 }
+
+// --- Connexion au compte chatgpt.com dans Pulse ---
+//
+// L'app garde le cookie de session de chatgpt.com dans le Trousseau. Avec lui,
+// /api/auth/session donne un token d'accès, valable pour l'API d'usage.
+
+pub const WEB_SESSION_URL: &str = "https://chatgpt.com/api/auth/session";
+
+const SAFARI_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) \
+    AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
+
+/// Usage avec la session du compte chatgpt.com. `cookie` est l'en-tête Cookie
+/// complet (le cookie de session peut être découpé en plusieurs morceaux).
+/// Appel bloquant, deux requêtes.
+pub fn fetch_web_usage(
+    session_url: &str,
+    usage_url: &str,
+    cookie: &str,
+    timeout: Duration,
+    now: i64,
+) -> Result<AiUsage, FetchError> {
+    let headers = [
+        ("Cookie", cookie),
+        ("User-Agent", SAFARI_USER_AGENT),
+        ("Accept", "application/json"),
+    ];
+    let response = http::get(session_url, &headers, timeout)?;
+    let is_html = response.content_type.as_deref().is_some_and(|value| value.contains("text/html"));
+    match response.status {
+        // Une page HTML au lieu de JSON : protection anti-bot.
+        200 if is_html => return Err(FetchError::Blocked),
+        200 => {}
+        401 | 403 => return Err(FetchError::Expired),
+        429 => return Err(FetchError::Blocked),
+        _ => return Err(FetchError::Unavailable),
+    }
+    // Session expirée : la réponse est « {} », sans accessToken.
+    let auth = parse_web_session(&response.body).ok_or(FetchError::Expired)?;
+    fetch_usage(usage_url, &auth, timeout, now)
+}
+
+/// Le token d'accès et le compte, dans la réponse de /api/auth/session.
+pub fn parse_web_session(json: &str) -> Option<CodexAuth> {
+    let root: Value = serde_json::from_str(json).ok()?;
+    let access_token = root.get("accessToken")?.as_str().filter(|token| !token.is_empty())?;
+    let account_id = root
+        .pointer("/account/id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string);
+    Some(CodexAuth {
+        access_token: access_token.to_string(),
+        account_id,
+    })
+}

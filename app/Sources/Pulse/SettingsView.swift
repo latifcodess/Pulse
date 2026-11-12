@@ -213,7 +213,7 @@ private struct ServiceSettingsTab: View {
                 if service == .claude {
                     ClaudeConnectionControls(app: app, model: model)
                 } else {
-                    CliConnectionControls(service: service, isSignedIn: model.isSignedIn)
+                    AccountConnectionControls(app: app, model: model)
                 }
                 Button("Vérifier maintenant") { model.refreshNow() }
                     .disabled(!model.isEnabled || model.isRefreshing)
@@ -365,6 +365,122 @@ private struct ClaudeConnectionControls: View {
             }
         case .claudeCode:
             CliConnectionControls(service: .claude, isSignedIn: model.isSignedIn)
+        }
+    }
+}
+
+/// ChatGPT, Gemini, Copilot : l'outil en ligne de commande, ou un compte
+/// connecté dans Pulse.
+private struct AccountConnectionControls: View {
+    let app: AppModel
+    let model: UsageModel
+    @AppStorage private var method: ConnectionMethod
+    @Environment(\.openWindow) private var openWindow
+
+    init(app: AppModel, model: UsageModel) {
+        self.app = app
+        self.model = model
+        _method = AppStorage(wrappedValue: .cli, ConnectionMethod.storageKey(for: model.service))
+    }
+
+    private var service: AiService { model.service }
+
+    var body: some View {
+        Picker("Méthode", selection: $method) {
+            Text(service.cliName).tag(ConnectionMethod.cli)
+            Text(service.accountName).tag(ConnectionMethod.account)
+        }
+        .onChange(of: method) {
+            model.refreshNow()
+        }
+
+        switch method {
+        case .cli:
+            CliConnectionControls(service: service, isSignedIn: model.isSignedIn)
+        case .account:
+            accountControls
+        }
+    }
+
+    @ViewBuilder
+    private var accountControls: some View {
+        if app.account(for: service)?.isConnected == true {
+            LabeledContent(service.accountName) {
+                Button("Se déconnecter") { app.disconnectAccount(service) }
+            }
+        } else {
+            switch service {
+            case .chatGpt:
+                LabeledContent(service.accountName) {
+                    Button("Se connecter…") { show(WindowID.chatGptLogin) }
+                }
+                Text("Connectez-vous avec l'adresse e-mail de votre compte : la connexion via Google, Apple ou Microsoft peut être refusée dans cette fenêtre.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            case .copilot:
+                LabeledContent(service.accountName) {
+                    Button("Se connecter…") { show(WindowID.githubLogin) }
+                }
+            case .gemini:
+                GoogleSignInRow(app: app)
+            case .claude:
+                EmptyView()
+            }
+        }
+    }
+
+    private func show(_ id: String) {
+        openWindow(id: id)
+        NSApp.activate()
+    }
+}
+
+/// Gemini : la connexion se fait dans le navigateur.
+private struct GoogleSignInRow: View {
+    let app: AppModel
+
+    var body: some View {
+        switch app.googleSignIn.phase {
+        case .waiting:
+            LabeledContent {
+                Button("Annuler") { app.googleSignIn.cancel() }
+            } label: {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Connexion en cours dans votre navigateur…")
+                }
+            }
+        case .idle, .failed:
+            LabeledContent(AiService.gemini.accountName) {
+                Button("Se connecter avec Google…") { app.signInWithGoogle() }
+            }
+            if case .failed(let message) = app.googleSignIn.phase {
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+}
+
+extension AiService {
+    /// L'outil en ligne de commande qui fournit les identifiants.
+    var cliName: String {
+        switch self {
+        case .claude: "Claude Code"
+        case .chatGpt: "Codex CLI"
+        case .gemini: "Gemini CLI"
+        case .copilot: "GitHub CLI"
+        }
+    }
+
+    /// Le compte qu'on peut connecter directement dans Pulse.
+    var accountName: String {
+        switch self {
+        case .claude: "Compte claude.ai"
+        case .chatGpt: "Compte ChatGPT"
+        case .gemini: "Compte Google"
+        case .copilot: "Compte GitHub"
         }
     }
 }

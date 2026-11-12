@@ -119,6 +119,11 @@ pub fn parse_copilot_usage(json: &str) -> Result<AiUsage, ParseError> {
             if quota.get("unlimited").and_then(Value::as_bool) == Some(true) {
                 return None;
             }
+            // Aucune requête incluse dans l'abonnement (Copilot Free n'a pas de
+            // requêtes premium) : ce n'est pas une limite à surveiller.
+            if quota.get("entitlement").and_then(Value::as_f64) == Some(0.0) {
+                return None;
+            }
             let remaining = quota.get("percent_remaining")?.as_f64()?;
             Some(UsageWindow {
                 label: label.to_string(),
@@ -145,4 +150,112 @@ fn parse_reset_date(text: &str) -> Option<i64> {
 fn is_executable(path: &Path) -> bool {
     path.metadata()
         .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+}
+
+// --- Connexion au compte GitHub dans Pulse (« device flow ») ---
+//
+// Pulse affiche un code ; l'utilisateur le saisit sur github.com/login/device,
+// puis Pulse reçoit un token, rangé dans le Trousseau par l'app.
+
+pub const DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
+pub const DEVICE_TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
+
+/// Identifiant OAuth public de l'extension GitHub Copilot (VS Code, Vim…) :
+/// ses tokens donnent accès à l'API d'usage de Copilot.
+const COPILOT_CLIENT_ID: &str = "Iv1.b507a08c87ecfe98";
+
+/// Le code à saisir sur GitHub.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct DeviceCode {
+    /// Identifiant secret de la demande, renvoyé à GitHub pour obtenir le token.
+    pub device_code: String,
+    /// Le code à taper, par ex. « 85A2-AFB9 ».
+    pub user_code: String,
+    pub verification_uri: String,
+    /// Délai minimal entre deux interrogations, en secondes.
+    pub interval: u32,
+    /// Durée de validité du code, en secondes.
+    pub expires_in: u32,
+}
+
+/// Où en est la connexion.
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum DeviceLoginStep {
+    /// L'utilisateur n'a pas encore validé le code.
+    Pending,
+    /// GitHub demande d'espacer les interrogations.
+    SlowDown,
+    Authorized { token: String },
+    /// Le code a expiré : il faut recommencer.
+    Expired,
+    /// L'utilisateur a refusé.
+    Denied,
+    /// Pas de réseau ou réponse inattendue.
+    Failed,
+}
+
+/// Demande un code à GitHub. Appel bloquant.
+pub fn request_device_code(url: &str, timeout: Duration) -> Result<DeviceCode, FetchError> {
+    let body = http::form_encode(&[("client_id", COPILOT_CLIENT_ID), ("scope", "read:user")]);
+    let headers = [
+        ("Accept", "application/json"),
+        ("Content-Type", "application/x-www-form-urlencoded"),
+        ("User-Agent", "Pulse"),
+    ];
+    let response = http::post(url, &headers, &body, timeout)?;
+    if response.status != 200 {
+        return Err(FetchError::Unavailable);
+    }
+    parse_device_code(&response.body).ok_or(FetchError::Unavailable)
+}
+
+pub fn parse_device_code(json: &str) -> Option<DeviceCode> {
+    let root: Value = serde_json::from_str(json).ok()?;
+    let text = |key: &str| root.get(key)?.as_str().filter(|value| !value.is_empty()).map(str::to_string);
+    let number = |key: &str, default: u32| {
+        root.get(key).and_then(Value::as_u64).map_or(default, |value| value.min(3600) as u32)
+    };
+    Some(DeviceCode {
+        device_code: text("device_code")?,
+        user_code: text("user_code")?,
+        verification_uri: text("verification_uri")
+            .filter(|uri| uri.starts_with("https://"))
+            .unwrap_or_else(|| "https://github.com/login/device".to_string()),
+        interval: number("interval", 5).max(1),
+        expires_in: number("expires_in", 900),
+    })
+}
+
+/// Demande à GitHub si le code a été validé. Appel bloquant.
+pub fn poll_device_token(url: &str, device_code: &str, timeout: Duration) -> DeviceLoginStep {
+    let body = http::form_encode(&[
+        ("client_id", COPILOT_CLIENT_ID),
+        ("device_code", device_code),
+        ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+    ]);
+    let headers = [
+        ("Accept", "application/json"),
+        ("Content-Type", "application/x-www-form-urlencoded"),
+        ("User-Agent", "Pulse"),
+    ];
+    match http::post(url, &headers, &body, timeout) {
+        Ok(response) if response.status == 200 => parse_device_token(&response.body),
+        _ => DeviceLoginStep::Failed,
+    }
+}
+
+pub fn parse_device_token(json: &str) -> DeviceLoginStep {
+    let Ok(root) = serde_json::from_str::<Value>(json) else {
+        return DeviceLoginStep::Failed;
+    };
+    if let Some(token) = root.get("access_token").and_then(Value::as_str).filter(|token| !token.is_empty()) {
+        return DeviceLoginStep::Authorized { token: token.to_string() };
+    }
+    match root.get("error").and_then(Value::as_str) {
+        Some("authorization_pending") => DeviceLoginStep::Pending,
+        Some("slow_down") => DeviceLoginStep::SlowDown,
+        Some("expired_token") => DeviceLoginStep::Expired,
+        Some("access_denied") => DeviceLoginStep::Denied,
+        _ => DeviceLoginStep::Failed,
+    }
 }

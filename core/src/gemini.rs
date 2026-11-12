@@ -2,11 +2,17 @@
 //!
 //! Le fichier est lu, jamais modifié : un token renouvelé reste en mémoire.
 
-use std::fs;
+use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
@@ -99,7 +105,7 @@ pub fn refresh_access_token(
     timeout: Duration,
     now: i64,
 ) -> Result<AccessToken, FetchError> {
-    let body = form_encode(&[
+    let body = http::form_encode(&[
         ("client_id", CLIENT_ID),
         ("client_secret", CLIENT_SECRET),
         ("refresh_token", refresh_token),
@@ -238,20 +244,250 @@ fn capitalize(word: &str) -> String {
     }
 }
 
-/// Encode un formulaire : lettres, chiffres et « -._~ » tels quels, le reste
-/// en %XX.
-fn form_encode(pairs: &[(&str, &str)]) -> String {
-    let encode = |text: &str| -> String {
-        text.bytes()
-            .map(|byte| match byte {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => (byte as char).to_string(),
-                _ => format!("%{byte:02X}"),
-            })
-            .collect()
-    };
-    pairs
-        .iter()
-        .map(|(key, value)| format!("{}={}", encode(key), encode(value)))
-        .collect::<Vec<_>>()
-        .join("&")
+// --- Connexion au compte Google dans Pulse ---
+//
+// Google refuse les connexions dans une fenêtre web intégrée : on ouvre la
+// page de connexion dans le navigateur, et Pulse attend la réponse sur une
+// adresse locale (127.0.0.1), comme Gemini CLI. Le refresh_token obtenu est
+// rangé dans le Trousseau par l'app.
+
+pub const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
+
+/// Les mêmes autorisations que Gemini CLI.
+const SCOPES: &str = "https://www.googleapis.com/auth/cloud-platform \
+    https://www.googleapis.com/auth/userinfo.email \
+    https://www.googleapis.com/auth/userinfo.profile";
+
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum GeminiLoginResult {
+    Success { refresh_token: String },
+    /// L'utilisateur a refusé sur la page de Google.
+    Denied,
+    /// Pas de réponse dans le délai, ou connexion annulée dans Pulse.
+    Cancelled,
+    /// Réponse invalide, ou échange du code refusé.
+    Failed,
+}
+
+/// Une connexion en cours : une adresse locale qui attend la réponse de Google.
+#[derive(uniffi::Object)]
+pub struct GeminiLogin {
+    listener: TcpListener,
+    verifier: String,
+    state: String,
+    redirect_uri: String,
+    authorization_url: String,
+    token_url: String,
+    cancelled: AtomicBool,
+}
+
+/// Prépare une connexion. None si aucune adresse locale n'a pu être ouverte.
+#[uniffi::export]
+pub fn gemini_login_start() -> Option<Arc<GeminiLogin>> {
+    GeminiLogin::start(AUTH_URL, TOKEN_URL)
+}
+
+impl GeminiLogin {
+    pub fn start(auth_url: &str, token_url: &str) -> Option<Arc<Self>> {
+        let listener = TcpListener::bind("127.0.0.1:0").ok()?;
+        listener.set_nonblocking(true).ok()?;
+        let port = listener.local_addr().ok()?.port();
+        let redirect_uri = format!("http://127.0.0.1:{port}/oauth2callback");
+        // PKCE : seul ce programme connaît `verifier`, dont Google ne reçoit
+        // que l'empreinte. Un code intercepté ne sert donc à rien.
+        let verifier = base64_url(&random_bytes(32)?);
+        let challenge = base64_url(&Sha256::digest(verifier.as_bytes()));
+        let state = base64_url(&random_bytes(16)?);
+        let query = http::form_encode(&[
+            ("client_id", CLIENT_ID),
+            ("redirect_uri", &redirect_uri),
+            ("response_type", "code"),
+            ("scope", SCOPES),
+            ("access_type", "offline"),
+            // Toujours afficher le consentement : sinon Google ne redonne pas de refresh_token.
+            ("prompt", "consent"),
+            ("code_challenge", &challenge),
+            ("code_challenge_method", "S256"),
+            ("state", &state),
+        ]);
+        Some(Arc::new(Self {
+            listener,
+            verifier,
+            state,
+            redirect_uri,
+            authorization_url: format!("{auth_url}?{query}"),
+            token_url: token_url.to_string(),
+            cancelled: AtomicBool::new(false),
+        }))
+    }
+}
+
+#[uniffi::export]
+impl GeminiLogin {
+    /// La page de connexion Google, à ouvrir dans le navigateur.
+    pub fn authorization_url(&self) -> String {
+        self.authorization_url.clone()
+    }
+
+    /// Arrête l'attente (fenêtre fermée par l'utilisateur).
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Relaxed);
+    }
+
+    /// Attend la réponse de Google, puis échange le code contre un
+    /// refresh_token. Appel bloquant, jusqu'à `timeout_seconds`.
+    pub fn wait(&self, timeout_seconds: u32) -> GeminiLoginResult {
+        let deadline = Instant::now() + Duration::from_secs(u64::from(timeout_seconds));
+        while Instant::now() < deadline && !self.cancelled.load(Ordering::Relaxed) {
+            let Ok((stream, _)) = self.listener.accept() else {
+                thread::sleep(Duration::from_millis(100));
+                continue;
+            };
+            if let Some(result) = self.handle(stream) {
+                return result;
+            }
+        }
+        GeminiLoginResult::Cancelled
+    }
+}
+
+impl GeminiLogin {
+    /// Traite une requête reçue sur l'adresse locale. None : ce n'était pas la
+    /// réponse de Google (par ex. une demande d'icône du navigateur).
+    fn handle(&self, mut stream: TcpStream) -> Option<GeminiLoginResult> {
+        let _ = stream.set_nonblocking(false);
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+        let mut buffer = [0; 8192];
+        let count = stream.read(&mut buffer).ok()?;
+        let request = String::from_utf8_lossy(&buffer[..count]);
+        let target = request.lines().next()?.split_whitespace().nth(1)?.to_string();
+
+        let Some(query) = target.strip_prefix("/oauth2callback?") else {
+            respond(&mut stream, "404 Not Found", "");
+            return None;
+        };
+        let params = parse_query(query);
+        let param = |key: &str| params.iter().find(|(name, _)| name == key).map(|(_, value)| value.as_str());
+
+        // Une réponse qui ne vient pas de notre demande est refusée.
+        if param("state") != Some(self.state.as_str()) {
+            respond(&mut stream, "400 Bad Request", "La connexion n'a pas pu être vérifiée. Recommencez depuis Pulse.");
+            return Some(GeminiLoginResult::Failed);
+        }
+        if param("error").is_some() {
+            respond(&mut stream, "200 OK", "Connexion annulée. Vous pouvez fermer cet onglet.");
+            return Some(GeminiLoginResult::Denied);
+        }
+        let Some(code) = param("code") else {
+            respond(&mut stream, "400 Bad Request", "Réponse de Google incomplète. Recommencez depuis Pulse.");
+            return Some(GeminiLoginResult::Failed);
+        };
+
+        let result = self.exchange(code);
+        let message = match result {
+            GeminiLoginResult::Success { .. } => "Pulse est connecté à votre compte Google. Vous pouvez fermer cet onglet.",
+            _ => "La connexion a échoué. Recommencez depuis Pulse.",
+        };
+        respond(&mut stream, "200 OK", message);
+        Some(result)
+    }
+
+    fn exchange(&self, code: &str) -> GeminiLoginResult {
+        let body = http::form_encode(&[
+            ("code", code),
+            ("client_id", CLIENT_ID),
+            ("client_secret", CLIENT_SECRET),
+            ("redirect_uri", &self.redirect_uri),
+            ("grant_type", "authorization_code"),
+            ("code_verifier", &self.verifier),
+        ]);
+        let headers = [
+            ("Content-Type", "application/x-www-form-urlencoded"),
+            ("Accept", "application/json"),
+        ];
+        let Ok(response) = http::post(&self.token_url, &headers, &body, Duration::from_secs(15)) else {
+            return GeminiLoginResult::Failed;
+        };
+        let refresh_token = serde_json::from_str::<Value>(&response.body)
+            .ok()
+            .filter(|_| response.status == 200)
+            .and_then(|root| root.get("refresh_token")?.as_str().map(str::to_string))
+            .filter(|token| !token.is_empty());
+        match refresh_token {
+            Some(refresh_token) => GeminiLoginResult::Success { refresh_token },
+            None => GeminiLoginResult::Failed,
+        }
+    }
+}
+
+/// Répond au navigateur avec une petite page en français.
+fn respond(stream: &mut TcpStream, status: &str, message: &str) {
+    let body = format!(
+        "<!doctype html><meta charset=\"utf-8\"><title>Pulse</title>\
+         <body style=\"font-family:-apple-system,sans-serif;text-align:center;margin-top:20vh\">\
+         <h1>Pulse</h1><p>{message}</p></body>"
+    );
+    let reply = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let _ = stream.write_all(reply.as_bytes());
+}
+
+/// « a=1&b=x%20y » → [("a", "1"), ("b", "x y")].
+pub fn parse_query(query: &str) -> Vec<(String, String)> {
+    query
+        .split('&')
+        .filter(|pair| !pair.is_empty())
+        .map(|pair| {
+            let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+            (percent_decode(key), percent_decode(value))
+        })
+        .collect()
+}
+
+fn percent_decode(text: &str) -> String {
+    let hex = |byte: u8| (byte as char).to_digit(16);
+    let bytes = text.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        // On lit les octets un par un : aucun risque de couper un caractère accentué.
+        match (byte, bytes.get(index + 1).copied().and_then(hex), bytes.get(index + 2).copied().and_then(hex)) {
+            (b'%', Some(high), Some(low)) => {
+                decoded.push((high * 16 + low) as u8);
+                index += 3;
+            }
+            (b'+', _, _) => {
+                decoded.push(b' ');
+                index += 1;
+            }
+            _ => {
+                decoded.push(byte);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
+/// Des octets aléatoires fournis par macOS.
+fn random_bytes(count: usize) -> Option<Vec<u8>> {
+    let mut bytes = vec![0; count];
+    File::open("/dev/urandom").ok()?.read_exact(&mut bytes).ok()?;
+    Some(bytes)
+}
+
+/// Base64 « URL » sans « = » final (RFC 4648 §5), utilisé par PKCE.
+pub fn base64_url(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let value = chunk.iter().enumerate().fold(0u32, |acc, (i, byte)| acc | u32::from(*byte) << (16 - 8 * i));
+        for position in 0..=chunk.len() {
+            output.push(ALPHABET[(value >> (18 - 6 * position) & 0x3f) as usize] as char);
+        }
+    }
+    output
 }

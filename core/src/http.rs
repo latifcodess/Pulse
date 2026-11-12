@@ -80,3 +80,21 @@ fn transport_error(error: ureq::Error) -> FetchError {
         _ => FetchError::Offline,
     }
 }
+
+/// Encode un formulaire : lettres, chiffres et « -._~ » tels quels, le reste
+/// en %XX.
+pub fn form_encode(pairs: &[(&str, &str)]) -> String {
+    let encode = |text: &str| -> String {
+        text.bytes()
+            .map(|byte| match byte {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => (byte as char).to_string(),
+                _ => format!("%{byte:02X}"),
+            })
+            .collect()
+    };
+    pairs
+        .iter()
+        .map(|(key, value)| format!("{}={}", encode(key), encode(value)))
+        .collect::<Vec<_>>()
+        .join("&")
+}

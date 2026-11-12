@@ -3,6 +3,8 @@ import SwiftUI
 enum WindowID {
     static let settings = "settings"
     static let claudeLogin = "claude-login"
+    static let chatGptLogin = "chatgpt-login"
+    static let githubLogin = "github-login"
     static let update = "update"
 }
 
@@ -12,10 +14,14 @@ struct PulseApp: App {
 
     var body: some Scene {
         // Une puce par IA suivie dans la barre des menus, chacune avec son popover.
-        ServiceMenuBarItem(model: app.claude, alerts: app.alertCenter, updater: app.updater)
-        ServiceMenuBarItem(model: app.chatgpt, alerts: app.alertCenter, updater: app.updater)
-        ServiceMenuBarItem(model: app.gemini, alerts: app.alertCenter, updater: app.updater)
-        ServiceMenuBarItem(model: app.copilot, alerts: app.alertCenter, updater: app.updater)
+        ServiceMenuBarItem(
+            model: app.claude, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
+        ServiceMenuBarItem(
+            model: app.chatgpt, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
+        ServiceMenuBarItem(
+            model: app.gemini, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
+        ServiceMenuBarItem(
+            model: app.copilot, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
 
         // Si aucune IA n'est suivie, cette icône garde un accès aux réglages.
         MenuBarExtra(isInserted: Binding(get: { app.noServiceShown }, set: { _ in })) {
@@ -49,6 +55,21 @@ struct PulseApp: App {
         .defaultSize(width: 520, height: 720)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+
+        Window("Connexion à ChatGPT", id: WindowID.chatGptLogin) {
+            ChatGptLoginWindow(app: app)
+        }
+        .defaultSize(width: 520, height: 720)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
+
+        Window("Connexion à GitHub", id: WindowID.githubLogin) {
+            GitHubLoginWindow(app: app)
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .defaultLaunchBehavior(.suppressed)
+        .restorationBehavior(.disabled)
     }
 }
 
@@ -58,10 +79,11 @@ private struct ServiceMenuBarItem: Scene {
     let model: UsageModel
     let alerts: AlertCenter
     let updater: Updater
+    let popovers: PopoverCoordinator
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(get: { model.isEnabled }, set: { model.isEnabled = $0 })) {
-            PopoverContent(model: model, updater: updater)
+            PopoverContent(model: model, updater: updater, popovers: popovers)
         } label: {
             let bar = model.bar
             MenuBarLabel(logo: model.service.logo(), text: bar.text, level: bar.level)
@@ -144,7 +166,10 @@ private struct FallbackMenu: View {
 private struct PopoverContent: View {
     let model: UsageModel
     let updater: Updater
+    let popovers: PopoverCoordinator
     @Environment(\.openWindow) private var openWindow
+    /// Ferme ce popover.
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         UsagePopover(
@@ -160,6 +185,14 @@ private struct PopoverContent: View {
             onUpdate: { showUpdateWindow(openWindow: openWindow) },
             onQuit: { NSApplication.shared.terminate(nil) }
         )
+        .onAppear { popovers.opened(model.service) }
+        .onDisappear { popovers.closed(model.service) }
+        // Le popover d'une autre IA vient de s'ouvrir : celui-ci se ferme.
+        .onChange(of: popovers.active) { _, active in
+            if let active, active != model.service {
+                dismiss()
+            }
+        }
     }
 }
 
@@ -168,10 +201,35 @@ private struct ClaudeLoginWindow: View {
     @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
-        ClaudeLoginView { sessionKey in
+        WebLoginView.claude { sessionKey in
             app.connectClaudeAi(sessionKey: sessionKey)
             dismissWindow(id: WindowID.claudeLogin)
         }
         .frame(minWidth: 420, minHeight: 560)
+    }
+}
+
+private struct ChatGptLoginWindow: View {
+    let app: AppModel
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        WebLoginView.chatGpt { cookie in
+            app.connectAccount(.chatGpt, secret: cookie)
+            dismissWindow(id: WindowID.chatGptLogin)
+        }
+        .frame(minWidth: 420, minHeight: 560)
+    }
+}
+
+private struct GitHubLoginWindow: View {
+    let app: AppModel
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        GitHubLoginView(monitor: app.monitor) { token in
+            app.connectAccount(.copilot, secret: token)
+            dismissWindow(id: WindowID.githubLogin)
+        }
     }
 }

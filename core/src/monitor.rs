@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 use crate::chatgpt;
 use crate::claude::{self, fetch_claude_usage};
 use crate::claude_web;
-use crate::copilot::{self, TokenError};
+use crate::copilot::{self, DeviceCode, DeviceLoginStep, TokenError};
 use crate::gemini::{self, AccessToken, GeminiCreds};
 use crate::http::{FetchError, HttpResponse};
 use crate::model::{AiService, AiState, AiUsage};
@@ -23,8 +23,11 @@ pub struct MonitorConfig {
     pub claude_usage_url: String,
     pub claude_web_base_url: String,
     pub chatgpt_usage_url: String,
+    pub chatgpt_session_url: String,
     pub codex_dir: Option<PathBuf>,
     pub copilot_usage_url: String,
+    pub github_device_code_url: String,
+    pub github_device_token_url: String,
     pub gh_paths: Vec<PathBuf>,
     pub gh_timeout: Duration,
     pub gemini_dir: Option<PathBuf>,
@@ -39,8 +42,11 @@ impl MonitorConfig {
             claude_usage_url: claude::USAGE_URL.to_string(),
             claude_web_base_url: claude_web::BASE_URL.to_string(),
             chatgpt_usage_url: chatgpt::USAGE_URL.to_string(),
+            chatgpt_session_url: chatgpt::WEB_SESSION_URL.to_string(),
             codex_dir: chatgpt::default_codex_dir(),
             copilot_usage_url: copilot::USAGE_URL.to_string(),
+            github_device_code_url: copilot::DEVICE_CODE_URL.to_string(),
+            github_device_token_url: copilot::DEVICE_TOKEN_URL.to_string(),
             gh_paths: copilot::GH_PATHS.iter().map(PathBuf::from).collect(),
             gh_timeout: Duration::from_secs(10),
             gemini_dir: gemini::default_gemini_dir(),
@@ -152,11 +158,62 @@ impl AiMonitor {
         let Some(creds) = self.config.gemini_dir.as_deref().and_then(gemini::read_creds) else {
             return AiState::NotConnected;
         };
-        let mut result = self.fetch_gemini(&creds, false);
+        self.gemini_state(&creds)
+    }
+
+    // --- Comptes connectés dans Pulse (secrets fournis par l'app, depuis le
+    // Trousseau, et jamais conservés ici) ---
+
+    /// Usage de ChatGPT avec la session du compte chatgpt.com. Appel bloquant.
+    pub fn refresh_chatgpt_account(&self, session_cookie: String) -> AiState {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let result = chatgpt::fetch_web_usage(
+            &self.config.chatgpt_session_url,
+            &self.config.chatgpt_usage_url,
+            &session_cookie,
+            self.config.timeout,
+            now,
+        );
+        self.state_from(AiService::ChatGpt, result)
+    }
+
+    /// Usage de Gemini avec le compte Google connecté dans Pulse. Appel bloquant.
+    pub fn refresh_gemini_account(&self, refresh_token: String) -> AiState {
+        let creds = GeminiCreds {
+            access_token: None,
+            refresh_token: Some(refresh_token),
+            expires_at: None,
+        };
+        self.gemini_state(&creds)
+    }
+
+    /// Usage de Copilot avec le compte GitHub connecté dans Pulse. Appel bloquant.
+    pub fn refresh_copilot_account(&self, token: String) -> AiState {
+        let result = copilot::fetch_usage(&self.config.copilot_usage_url, &token, self.config.timeout);
+        self.state_from(AiService::Copilot, result)
+    }
+
+    /// Connexion GitHub, étape 1 : le code à saisir sur github.com. None si
+    /// GitHub n'a pas pu être joint. Appel bloquant.
+    pub fn copilot_device_code(&self) -> Option<DeviceCode> {
+        copilot::request_device_code(&self.config.github_device_code_url, self.config.timeout).ok()
+    }
+
+    /// Connexion GitHub, étape 2 : le code a-t-il été validé ? Appel bloquant.
+    pub fn copilot_poll_device(&self, device_code: String) -> DeviceLoginStep {
+        copilot::poll_device_token(&self.config.github_device_token_url, &device_code, self.config.timeout)
+    }
+}
+
+impl AiMonitor {
+    /// Usage de Gemini avec ces identifiants (fichier de Gemini CLI, ou compte
+    /// connecté dans Pulse).
+    fn gemini_state(&self, creds: &GeminiCreds) -> AiState {
+        let mut result = self.fetch_gemini(creds, false);
         if matches!(result, Err(GeminiError::Api(FetchError::Expired))) && creds.refresh_token.is_some() {
             // L'API a refusé le token avant son expiration : on en demande un
             // nouveau. Si c'est le renouvellement qui a été refusé, inutile.
-            result = self.fetch_gemini(&creds, true);
+            result = self.fetch_gemini(creds, true);
         }
         let result = result.map_err(|(GeminiError::Token(error) | GeminiError::Api(error))| error);
         self.state_from(AiService::Gemini, result)
