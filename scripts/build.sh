@@ -16,6 +16,7 @@ xcodebuild \
     -scheme Pulse \
     -configuration Release \
     -derivedDataPath "$ROOT/build/DerivedData" \
+    -allowProvisioningUpdates \
     -quiet \
     build
 

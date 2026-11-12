@@ -20,6 +20,7 @@ final class AppModel {
     let alertCenter = AlertCenter()
     let updater = Updater()
     let popovers = PopoverCoordinator()
+    private let widgetExporter = WidgetExporter()
 
     /// Dans l'ordre de la barre des menus et des onglets des réglages.
     var services: [UsageModel] { [claude, chatgpt, gemini, copilot] }
@@ -71,14 +72,23 @@ final class AppModel {
             }
         }
         for model in services {
-            model.onNewState = { [alertCenter] service, state in
+            model.onNewState = { [alertCenter, weak self] service, state in
                 alertCenter.handle(service: service, state: state)
+                self?.exportForWidget()
+            }
+            model.onFollowChange = { [weak self] in
+                self?.exportForWidget()
             }
         }
         updater.notify = { [alertCenter] title, body in
             alertCenter.notifyAboutUpdate(title: title, body: body)
         }
         updater.start()
+    }
+
+    /// Le fichier lu par le widget (voir WidgetExporter).
+    private func exportForWidget() {
+        widgetExporter.scheduleExport(of: services)
     }
 
     func connectClaudeAi(sessionKey: String) {

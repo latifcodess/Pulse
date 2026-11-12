@@ -6,9 +6,10 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 RELEASE="$ROOT/build/release"
-VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/app/Info.plist")"
-
 "$ROOT/scripts/build.sh"
+
+# La version vient de project.yml (MARKETING_VERSION), lue dans l'app construite.
+VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$ROOT/build/Pulse.app/Contents/Info.plist")"
 
 rm -rf "$RELEASE"
 mkdir -p "$RELEASE"

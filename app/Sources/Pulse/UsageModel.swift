@@ -14,8 +14,10 @@ final class UsageModel {
     private(set) var isRefreshing = false
 
     private let fetch: @MainActor () async -> AiState
-    /// Appelé à chaque nouvel état (pour les alertes).
+    /// Appelé à chaque nouvel état (pour les alertes et le widget).
     @ObservationIgnored var onNewState: ((AiService, AiState) -> Void)?
+    /// Appelé quand le suivi est activé ou désactivé (pour le widget).
+    @ObservationIgnored var onFollowChange: (() -> Void)?
     private var refreshTask: Task<Void, Never>?
 
     /// `fetch` récupère l'état ; le travail bloquant doit y sortir du thread principal.
@@ -32,6 +34,7 @@ final class UsageModel {
         set {
             guard newValue != settings.isEnabled else { return }
             settings.isEnabled = newValue
+            onFollowChange?()
             if newValue {
                 refreshNow()
             } else {

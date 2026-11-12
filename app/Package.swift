@@ -12,8 +12,8 @@ let package = Package(
     name: "Pulse",
     platforms: [.macOS(.v15)],
     targets: [
-        // L'app.
-        .executableTarget(name: "Pulse", dependencies: ["PulseCore"]),
+        // L'app, avec le format du fichier partagé avec le widget.
+        .executableTarget(name: "Pulse", dependencies: ["PulseCore"], path: "Sources", sources: ["Pulse", "Shared"]),
         // Bindings Swift générés par scripts/build.sh, liés à la lib statique Rust.
         .target(
             name: "PulseCore",

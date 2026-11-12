@@ -11,12 +11,16 @@ options:
 
 settings:
   base:
+    # La version de Pulse (app et widget), à augmenter pour chaque release.
+    MARKETING_VERSION: "0.1.1"
+    CURRENT_PROJECT_VERSION: "2"
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
-    # Signature ad hoc, sans compte développeur.
-    CODE_SIGN_IDENTITY: "-"
-    CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: ""
+    # Signature avec le compte Apple gratuit (Personal Team) : macOS exige
+    # une identité de développeur pour l'App Group partagé avec le widget.
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: Apple Development
+    DEVELOPMENT_TEAM: 79W4JUNG7Y
     # Les scripts de build écrivent dans core/target et app/Sources.
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     # Le module C « pulse_coreFFI » (en-tête + module.modulemap générés par UniFFI).
@@ -48,11 +52,22 @@ targets:
     platform: macOS
     sources:
       - path: app/Sources/Pulse
+      # Le format du fichier partagé avec le widget.
+      - path: app/Sources/Shared
       - path: build/AppIcon.icns
         optional: true
         buildPhase: resources
     dependencies:
       - target: PulseCore
+      # Intégré dans Pulse.app/Contents/PlugIns.
+      - target: PulseWidget
+    entitlements:
+      path: app/Pulse.entitlements
+      properties:
+        # Le conteneur partagé avec le widget, préfixé par le Team ID comme
+        # l'exige macOS sans compte payant. L'app n'est pas sandboxée.
+        com.apple.security.application-groups:
+          - $(TeamIdentifierPrefix)ch.latifcodess.pulse
     preBuildScripts:
       - name: Icône de l'app
         script: '"${SRCROOT}/scripts/build-icon.sh"'
@@ -83,3 +98,44 @@ targets:
           STRIP_INSTALLED_PRODUCT: YES
           STRIP_STYLE: all
     scheme: {}
+
+  # Le widget (WidgetKit) : il ne lit que le fichier écrit par l'app dans le
+  # conteneur de l'App Group, sans réseau ni Trousseau.
+  PulseWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: app/Sources/PulseWidget
+      - path: app/Sources/Shared
+      - path: app/Sources/Pulse/ServiceLogo.swift
+    info:
+      path: app/PulseWidget-Info.plist
+      properties:
+        CFBundleDisplayName: Pulse
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "15.0"
+        # Le nom complet de l'App Group, lu par le code (voir WidgetSnapshot).
+        PulseAppGroup: $(TeamIdentifierPrefix)ch.latifcodess.pulse
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: app/PulseWidget.entitlements
+      properties:
+        # Les widgets doivent être sandboxés.
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - $(TeamIdentifierPrefix)ch.latifcodess.pulse
+    settings:
+      base:
+        PRODUCT_NAME: PulseWidget
+        PRODUCT_BUNDLE_IDENTIFIER: ch.latifcodess.pulse.widget
+        SKIP_INSTALL: YES
+        ENABLE_HARDENED_RUNTIME: NO
+      configs:
+        Release:
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+          DEAD_CODE_STRIPPING: YES
+          DEPLOYMENT_POSTPROCESSING: YES
+          STRIP_INSTALLED_PRODUCT: YES
+          STRIP_STYLE: all
