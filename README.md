@@ -32,27 +32,33 @@ IA prises en charge : **Claude**, **ChatGPT** (Codex), **Gemini** et
   - **onglet Alertes** : modifier les alertes ou en ajouter ;
   - **ouverture au démarrage**.
 - **Hors ligne** : les dernières valeurs connues restent affichées.
-- **Mises à jour intégrées** : recherche automatique une fois par jour (ou
-  à la demande), puis installation et relance en un clic. Chaque
+- **Widgets** pour le bureau et le centre de notifications : petit (une IA,
+  au choix) et moyen (toutes les IA suivies). Les données de plus de 15 min
+  sont affichées en grisé.
+- **Mises à jour intégrées** : au lancement de Pulse, une fenêtre annonce
+  les nouvelles versions ; installation et relance en un clic. Chaque
   téléchargement est vérifié par son empreinte SHA-256.
 - Pas d'icône dans le Dock. Interface en français.
 
 ## Comment Pulse se connecte
 
-Pulse réutilise les comptes des outils officiels déjà installés sur votre Mac.
-**Leurs identifiants sont lus, jamais copiés ni modifiés.**
+Pour chaque IA, deux méthodes au choix (Réglages › onglet de l'IA ›
+Méthode) :
 
-| IA | Source | Pour se connecter |
+- **l'outil officiel en ligne de commande**, déjà connecté sur votre Mac :
+  Pulse lit ses identifiants, **sans jamais les copier ni les modifier** ;
+- **un compte connecté directement dans Pulse**.
+
+| IA | Outil en ligne de commande | Compte dans Pulse |
 |---|---|---|
-| Claude | Token de Claude Code (Trousseau), ou votre compte claude.ai | `claude` puis `/login`, ou « Se connecter » dans les Réglages |
-| ChatGPT | `~/.codex/auth.json` de Codex CLI | `codex login` |
-| Gemini | `~/.gemini/oauth_creds.json` de Gemini CLI | `gemini`, puis « Login with Google » |
-| Copilot | `gh auth token` de GitHub CLI | `gh auth login` |
+| Claude | Claude Code (`claude`, puis `/login`) | Compte claude.ai, dans une fenêtre de Pulse |
+| ChatGPT | Codex CLI (`codex login`) | Compte ChatGPT, dans une fenêtre de Pulse (avec votre e-mail) |
+| Gemini | Gemini CLI (`gemini`) | Compte Google, dans votre navigateur |
+| Copilot | GitHub CLI (`gh auth login`) | Compte GitHub, avec un code à saisir sur github.com |
 
-Les seuls secrets que Pulse enregistre lui-même (le cookie de session
-claude.ai) sont rangés dans le **Trousseau**. Les tokens renouvelés (Gemini)
-ou obtenus de `gh` restent en mémoire. Les préférences (pas secrètes) sont dans
-UserDefaults.
+Les secrets que Pulse enregistre lui-même (cookies de session, tokens des
+comptes connectés dans Pulse) sont rangés dans le **Trousseau**. Les
+préférences, qui ne sont pas secrètes, sont dans UserDefaults.
 
 > Pulse utilise des API internes, non documentées, de ces services. Elles
 > peuvent changer sans préavis : une limite affichée « indisponible » vient
@@ -60,18 +66,42 @@ UserDefaults.
 
 ## Installation
 
-1. Ouvrez `Pulse-<version>.dmg` et glissez **Pulse** sur **Applications**.
-2. Pulse est signé « ad hoc », sans certificat Apple : au premier lancement,
-   faites un clic droit sur l'app › **Ouvrir**, puis confirmez. Si macOS
-   refuse quand même :
-
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/Pulse.app
-   ```
-
+1. Téléchargez `Pulse-<version>.dmg` depuis les
+   [releases](https://github.com/latifcodess/Pulse/releases), ouvrez-le et
+   glissez **Pulse** sur **Applications**.
+2. Lancez Pulse depuis le dossier Applications.
 3. Acceptez les notifications si vous voulez les alertes.
 
 Configuration requise : macOS 15 ou plus récent, Mac Apple Silicon ou Intel.
+
+### Si Pulse ne s'ouvre pas
+
+Pulse n'est pas notarisé par Apple : il est signé avec un compte développeur
+gratuit, pas avec un certificat « Developer ID ». Au premier lancement, macOS
+peut donc afficher « Apple ne peut pas vérifier que Pulse ne contient pas de
+logiciel malveillant ». Pour l'autoriser :
+
+1. Cliquez sur **Terminé** dans ce message.
+2. Ouvrez **Réglages Système › Confidentialité et sécurité**.
+3. Descendez jusqu'à la section **Sécurité** : le message « Pulse a été
+   bloqué… » s'y affiche. Cliquez sur **Ouvrir quand même**.
+4. Confirmez avec votre mot de passe (ou Touch ID), puis cliquez sur
+   **Ouvrir**.
+
+Il suffit de le faire une fois. Les mises à jour installées depuis Pulse ne
+le redemandent pas.
+
+Autre solution, dans le Terminal :
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Pulse.app
+```
+
+### Ajouter le widget
+
+Clic droit sur le bureau › **Modifier les widgets…**, cherchez **Pulse**,
+puis choisissez « Pulse — une IA » ou « Pulse — toutes les IA ». Pour
+changer l'IA du petit widget : clic droit dessus › **Modifier**.
 
 ## Compilation
 
@@ -104,16 +134,18 @@ non versionnés).
 
 `app/Package.swift` ne sert plus qu'à l'éditeur (SourceKit dans VS Code).
 
-Comme la signature est ad hoc, macOS redemande l'accès au Trousseau après
-chaque build : cliquez sur « Toujours autoriser ».
+Pulse est signé avec un compte Apple (gratuit) : l'App Group partagé avec le
+widget l'exige. Pour compiler avec votre propre compte, connectez-le dans
+Xcode › Réglages › Comptes, puis remplacez `DEVELOPMENT_TEAM` dans
+`project.yml` par votre Team ID.
 
 ## Publier une nouvelle version
 
 Pulse cherche ses mises à jour dans les releases GitHub de
 `latifcodess/Pulse` (le dépôt doit être public).
 
-1. Augmentez `CFBundleShortVersionString` dans `app/Info.plist`
-   (par ex. `0.2.0`).
+1. Augmentez `MARKETING_VERSION` (et `CURRENT_PROJECT_VERSION`) dans
+   `project.yml`, par ex. `0.2.0` : c'est la version de l'app et du widget.
 2. Lancez `./scripts/package.sh`. Il produit dans `build/release/` le DMG
    et son empreinte : `Pulse-0.2.0.dmg` et `Pulse-0.2.0.dmg.sha256`.
 3. Sur GitHub, créez une release avec le tag **`v0.2.0`**, des notes de
@@ -132,9 +164,9 @@ Pulse/
 │   │   ├── http.rs          GET/POST bloquants (ureq), erreurs communes
 │   │   ├── claude.rs        API d'usage de Claude Code
 │   │   ├── claude_web.rs    Compte claude.ai (cookie de session)
-│   │   ├── chatgpt.rs       Codex : API d'usage + repli sur les sessions
-│   │   ├── gemini.rs        Gemini CLI : OAuth, projet, quotas
-│   │   ├── copilot.rs       GitHub CLI : token, quotas
+│   │   ├── chatgpt.rs       Codex ou compte ChatGPT : API d'usage
+│   │   ├── gemini.rs        Gemini CLI ou compte Google : OAuth, quotas
+│   │   ├── copilot.rs       GitHub CLI ou compte GitHub : token, quotas
 │   │   ├── projection.rs    Historique et régression linéaire
 │   │   ├── alerts.rs        Règles d'alerte et moteur de déclenchement
 │   │   ├── update.rs        Releases GitHub, téléchargement vérifié
@@ -143,6 +175,8 @@ Pulse/
 ├── app/                     Swift 6 : SwiftUI + AppKit
 │   └── Sources/
 │       ├── Pulse/           L'app (barre des menus, panneau, réglages…)
+│       ├── PulseWidget/     Le widget (WidgetKit)
+│       ├── Shared/          Format du fichier partagé app ↔ widget
 │       ├── PulseCore/       Bindings Swift générés par UniFFI
 │       └── pulse_coreFFI/   En-tête C généré
 ├── project.yml              Projet Xcode (XcodeGen)
@@ -166,10 +200,13 @@ Pulse/
   Il est compilé en bibliothèque statique, puis exposé à Swift par
   [UniFFI](https://mozilla.github.io/uniffi-rs/).
 - **L'app Swift** :
-  - lit le Trousseau et gère la connexion claude.ai (WebKit) ;
+  - lit le Trousseau et gère les connexions aux comptes ;
   - affiche l'interface ;
   - envoie les notifications rédigées en français ;
-  - enregistre les préférences.
+  - enregistre les préférences ;
+  - écrit, après chaque actualisation, le fichier lu par le widget (dans le
+    conteneur de l'App Group).
+- **Le widget** ne lit que ce fichier : ni réseau, ni Trousseau.
 
   Les appels Rust sont bloquants : Swift les lance hors du thread principal
   (`Task.detached`).
@@ -184,7 +221,8 @@ UsageModel (Swift, toutes les N s)
        ├─ UsageHistory.record()             → projected_full_at
        └─ renvoie un AiState (Ok, Offline, Expired, Blocked…)
   ├─ met à jour la puce et le panneau
-  └─ AlertCenter → AlertEngine.evaluate() (Rust) → notifications
+  ├─ AlertCenter → AlertEngine.evaluate() (Rust) → notifications
+  └─ WidgetExporter → widget.json → le widget se redessine
 ```
 
 ## Logos
