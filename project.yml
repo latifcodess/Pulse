@@ -12,8 +12,8 @@ options:
 settings:
   base:
     # La version de Pulse (app et widget), à augmenter pour chaque release.
-    MARKETING_VERSION: "0.3.0"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "0.3.1"
+    CURRENT_PROJECT_VERSION: "5"
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "15.0"
     # Signature avec le compte Apple gratuit (Personal Team) : macOS exige
