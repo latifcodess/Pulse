@@ -22,6 +22,8 @@
 - **Tes IA dans la barre des menus**, en trois styles au choix : *Logo + %*, *Anneaux* (le plus compact, idéal avec une encoche) ou *Compact* (seulement l'IA la plus proche de sa limite et l'heure prévue). Regroupées dans un seul élément ou séparées, et masquables tant qu'elles sont sous un seuil. Bleu, puis orange et rouge à l'approche de la limite.
 - **Une fenêtre détaillée au clic** : le % de la limite la plus proche, un graphique de la fenêtre en cours avec la projection en pointillés jusqu'à 100 %, une alerte *« Au rythme actuel, tu seras bloqué de 15:32 à 17:00 »*, puis chaque limite avec sa barre, son reset (*« Reset à 17:00 · dans 2 h 05 »*) et sa projection (*« Limite vers 15:32 »* ou *« Tiendra jusqu'au reset »*).
 - **Projection** : Pulse mesure ta vitesse de consommation sur les 30 dernières minutes et te dit si la limite sera atteinte avant le reset.
+- **Ta couleur** : 12 couleurs au choix (ou n'importe laquelle) pour les pourcentages et les barres sous le seuil orange.
+- **Sur l'écran verrouillé** *(expérimental)* : le logo, le % et l'heure prévue de chaque IA, sous l'horloge.
 - **Notifications** : limite au-dessus d'un seuil, bientôt atteinte, de nouveau disponible, session expirée. Chaque alerte ne se déclenche qu'une fois.
 - **Widgets** pour le bureau et le centre de notifications : petit (une IA, avec son anneau), moyen (les 4 IA) et grand (une IA avec son graphique). Un clic ouvre la fenêtre de l'IA.
 - **Deux façons de se connecter** à chaque IA : son outil en ligne de commande déjà installé, ou ton compte directement dans Pulse.
@@ -122,9 +124,11 @@ Ouvre les réglages avec le bouton ⚙️ de la fenêtre d'une IA. Les changemen
 | Réglage | Effet |
 |---|---|
 | **Style dans la barre des menus** | *Logo + %*, *Anneaux* ou *Compact*. |
+| **Couleur** | La couleur des pourcentages, barres et anneaux sous le seuil orange : 12 couleurs proposées, ou une couleur personnalisée. |
 | **Regrouper les IA dans un seul élément** | Toutes les IA dans un seul élément, ou une icône par IA. |
 | **Masquer une IA tant qu'elle est sous** | Jamais, 25 %, 50 % ou 75 % : la barre reste discrète jusqu'à ce que ça compte. |
 | **Ouvrir Pulse au démarrage** | Lance Pulse à l'ouverture de la session. |
+| **Afficher sur l'écran verrouillé** *(expérimental)* | Le logo, le % et l'heure prévue de chaque IA, sous l'horloge de l'écran verrouillé. Désactivé par défaut ; visible par toute personne devant le Mac. |
 | **Mises à jour** | Version installée, recherche automatique, *Rechercher maintenant*. |
 
 **Page de chaque IA**
@@ -224,6 +228,7 @@ Pulse.app                      ← app de barre des menus (Swift)
 - Après chaque actualisation, l'app écrit un petit fichier JSON dans un **App Group** (limites, projection, historique de la fenêtre en cours) ; le widget, **sandboxé**, ne lit que ce fichier, sans réseau ni Trousseau.
 - Les points du graphique sont gardés en mémoire pendant que Pulse tourne : après un lancement, la courbe se remplit au fil des actualisations.
 - L'ouverture au démarrage repose sur `SMAppService`.
+- L'affichage sur l'écran verrouillé utilise des fonctions privées de **SkyLight** (le framework qui parle au WindowServer), comme les apps de type « notch ». Tout ce code est isolé dans [`LockScreenWindow.swift`](app/Sources/Pulse/LockScreenWindow.swift) ; si une de ces fonctions disparaît dans une version de macOS, l'option est simplement grisée.
 
 > ⚠️ Pulse utilise des API internes, non documentées, de ces services. Elles peuvent changer sans préavis : une limite affichée « indisponible » vient souvent de là.
 
