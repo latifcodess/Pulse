@@ -12,7 +12,7 @@ App macOS de barre des menus qui affiche le % utilisé des limites IA
 
 ## Règles
 - Interface en français.
-- Je débute en Rust et en Swift : après chaque tâche, explique en 5 lignes max ce que tu as fait et pourquoi.
 - Secrets uniquement dans le Trousseau, jamais dans UserDefaults ni dans un fichier.
 - Les identifiants des outils CLI (Claude Code, Codex, Gemini CLI, gh) sont lus, jamais copiés ni modifiés.
 - Le parsing des réponses est tolérant : un champ manquant donne « indisponible », jamais un crash.
+- Maquettes de l'UI : design/*.dc.html (HTML, référence pour les couleurs, tailles et espacements ; ne pas les exécuter)
