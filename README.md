@@ -19,11 +19,11 @@
 
 ## ✨ Fonctionnalités
 
-- **Une puce par IA dans la barre des menus**, avec son logo et le pourcentage utilisé. Elle passe à l'orange puis au rouge à l'approche de la limite.
-- **Un panneau détaillé au clic** : chaque limite (session, semaine, modèle…) avec sa barre, l'heure de réinitialisation (*« Réinitialisé à 17:00 · dans 2 h 15 »*) et une projection (*« Limite atteinte vers 15:40 »* ou *« Tiendra jusqu'au reset »*).
+- **Tes IA dans la barre des menus**, en trois styles au choix : *Logo + %*, *Anneaux* (le plus compact, idéal avec une encoche) ou *Compact* (seulement l'IA la plus proche de sa limite et l'heure prévue). Regroupées dans un seul élément ou séparées, et masquables tant qu'elles sont sous un seuil. Bleu, puis orange et rouge à l'approche de la limite.
+- **Une fenêtre détaillée au clic** : le % de la limite la plus proche, un graphique de la fenêtre en cours avec la projection en pointillés jusqu'à 100 %, une alerte *« Au rythme actuel, tu seras bloqué de 15:32 à 17:00 »*, puis chaque limite avec sa barre, son reset (*« Reset à 17:00 · dans 2 h 05 »*) et sa projection (*« Limite vers 15:32 »* ou *« Tiendra jusqu'au reset »*).
 - **Projection** : Pulse mesure ta vitesse de consommation sur les 30 dernières minutes et te dit si la limite sera atteinte avant le reset.
 - **Notifications** : limite au-dessus d'un seuil, bientôt atteinte, de nouveau disponible, session expirée. Chaque alerte ne se déclenche qu'une fois.
-- **Widgets** pour le bureau et le centre de notifications : une IA au choix, ou toutes d'un coup.
+- **Widgets** pour le bureau et le centre de notifications : petit (une IA, avec son anneau), moyen (les 4 IA) et grand (une IA avec son graphique). Un clic ouvre la fenêtre de l'IA.
 - **Deux façons de se connecter** à chaque IA : son outil en ligne de commande déjà installé, ou ton compte directement dans Pulse.
 - **Hors ligne**, les dernières valeurs connues restent affichées.
 - **Mises à jour automatiques** : Pulse te prévient quand une nouvelle version sort et s'installe en un clic.
@@ -68,7 +68,7 @@ xattr -dr com.apple.quarantine /Applications/Pulse.app
 
 ### 3. Connecter tes IA
 
-Les puces apparaissent dans la barre des menus. Pour chaque IA qui affiche **non connecté**, clique sur la puce › ⚙️ pour ouvrir ses réglages, puis choisis une **méthode** (voir le tableau ci-dessous).
+Tes IA apparaissent dans la barre des menus. Pour chaque IA qui affiche **non connecté**, clique dessus › ⚙️ pour ouvrir ses réglages, puis choisis une **méthode** (voir le tableau ci-dessous).
 
 Accepte aussi les **notifications** quand macOS les propose, si tu veux les alertes.
 
@@ -98,34 +98,47 @@ Pour chaque IA, deux méthodes au choix :
 
 | Où tu cliques | Ce qui s'affiche |
 |---|---|
-| **Une puce** dans la barre des menus | Le panneau de l'IA : ses limites, les heures de reset et la projection |
-| **Une autre puce** | Son panneau remplace le précédent |
-| **⟳** dans le panneau | Actualise tout de suite |
-| **⚙️** dans le panneau | Les réglages de cette IA |
-| **Pulse x.y** en bas du panneau | La mise à jour disponible |
+| **Une IA** dans la barre des menus | Sa fenêtre : le graphique, ses limites, les heures de reset et la projection |
+| **L'élément regroupé** (ou le style Compact) | La fenêtre de l'IA la plus proche de sa limite, avec en haut les logos des autres IA pour passer de l'une à l'autre |
+| **N'importe où ailleurs** | Ferme la fenêtre |
+| **⟳** dans la fenêtre | Actualise tout de suite |
+| **⚙️** dans la fenêtre | Les réglages de cette IA |
+| **⏻** dans la fenêtre | Quitte Pulse |
+| **Pulse x.y** en bas de la fenêtre | La mise à jour disponible |
+| **Un widget** | La fenêtre de son IA |
 
-> 💡 **Ajouter un widget** : clic droit sur le bureau › **Modifier les widgets…**, cherche **Pulse**, puis choisis *« Pulse — une IA »* (petit) ou *« Pulse — toutes les IA »* (moyen). Pour changer l'IA du petit widget : clic droit dessus › **Modifier**. Les données de plus de 15 min s'y affichent en grisé.
+> 💡 **Ajouter un widget** : clic droit sur le bureau › **Modifier les widgets…**, cherche **Pulse**, puis choisis *« Pulse — une IA »* (petit ou grand) ou *« Pulse — toutes les IA »* (moyen). Pour changer l'IA : clic droit sur le widget › **Modifier**. Les données de plus de 15 min s'y affichent en gris, avec *« Il y a 32 min »*.
+
+> 💡 Sans regroupement, chaque IA a sa propre icône : maintiens **⌘** pour la déplacer dans la barre des menus.
 
 ---
 
 ## ⚙️ Réglages
 
-Ouvre les réglages avec le bouton ⚙️ d'un panneau. Les changements s'appliquent immédiatement.
+Ouvre les réglages avec le bouton ⚙️ de la fenêtre d'une IA. Les changements s'appliquent immédiatement. La barre latérale donne accès à **Général**, **Alertes** et à chaque IA (un point vert indique qu'elle est connectée).
 
-**Onglet de chaque IA**
+**Général**
 
 | Réglage | Effet |
 |---|---|
-| **Suivre** | Affiche ou retire la puce. Sans suivi, Pulse ne fait plus aucune requête pour cette IA. |
-| **Méthode** | L'outil en ligne de commande, ou ton compte connecté dans Pulse. |
-| **Valeur affichée** | La 1re limite, la 2e, ou les deux dans la puce. |
-| **Pourcentage** | Le pourcentage utilisé ou restant. |
+| **Style dans la barre des menus** | *Logo + %*, *Anneaux* ou *Compact*. |
+| **Regrouper les IA dans un seul élément** | Toutes les IA dans un seul élément, ou une icône par IA. |
+| **Masquer une IA tant qu'elle est sous** | Jamais, 25 %, 50 % ou 75 % : la barre reste discrète jusqu'à ce que ça compte. |
+| **Ouvrir Pulse au démarrage** | Lance Pulse à l'ouverture de la session. |
+| **Mises à jour** | Version installée, recherche automatique, *Rechercher maintenant*. |
+
+**Page de chaque IA**
+
+| Réglage | Effet |
+|---|---|
+| **Suivre** | Affiche ou retire l'IA. Sans suivi, Pulse ne fait plus aucune requête pour elle. |
+| **Connexion** | L'outil en ligne de commande, ou ton compte connecté dans Pulse. Avec l'outil, Pulse indique la commande à lancer pour se connecter ou se déconnecter. |
+| **Valeur dans la barre** | La 1re limite (ex. *Session*), la 2e (ex. *Semaine*) ou les deux. |
+| **Format** | Le pourcentage utilisé ou restant. |
+| **Seuil orange / rouge** | Les seuils de couleur de la barre des menus, de la fenêtre et du widget. |
 | **Actualiser toutes les** | De 30 s à 10 min. |
-| **Orange / rouge au-delà de** | Les seuils de couleur de la puce, du panneau et du widget. |
 
-**Onglet Général** : ouverture au démarrage de la session, IA suivies, recherche automatique des mises à jour.
-
-**Onglet Alertes** : active, modifie ou ajoute des alertes.
+**Alertes** : active, modifie ou ajoute des alertes.
 
 | Alerte | Quand |
 |---|---|
@@ -201,13 +214,15 @@ Pulse.app                      ← app de barre des menus (Swift)
 | Dossier | Contenu |
 |---|---|
 | [`core/`](core) | Cœur en **Rust** : requêtes aux services, lecture tolérante des réponses, projection, moteur d'alertes, mises à jour. Exposé à Swift par [UniFFI](https://mozilla.github.io/uniffi-rs/). |
-| [`app/Sources/Pulse/`](app/Sources/Pulse) | App en SwiftUI + AppKit : barre des menus, panneaux, réglages, notifications, connexions aux comptes |
-| [`app/Sources/PulseWidget/`](app/Sources/PulseWidget) | Widget **WidgetKit** : petit et moyen |
-| [`app/Sources/Shared/`](app/Sources/Shared) | Format des données partagées entre l'app et le widget |
+| [`app/Sources/Pulse/`](app/Sources/Pulse) | App en SwiftUI + AppKit : barre des menus (`NSStatusItem`), fenêtres des IA (`NSPopover`), réglages, notifications, connexions aux comptes |
+| [`app/Sources/PulseWidget/`](app/Sources/PulseWidget) | Widget **WidgetKit** : petit, moyen et grand |
+| [`app/Sources/Shared/`](app/Sources/Shared) | Composants d'interface communs à l'app et au widget (logo, anneau, barre, graphique de projection, couleurs) et format des données partagées |
+| [`design/`](design) | Maquettes de l'interface (HTML), référence pour les couleurs, tailles et espacements |
 | [`scripts/`](scripts) | Build, DMG, icône |
 
 - Le **cœur Rust** fait tout ce qui se teste sans interface : il interroge les services, et un champ manquant dans une réponse donne « indisponible », jamais un crash.
-- Après chaque actualisation, l'app écrit un petit fichier JSON dans un **App Group** ; le widget, **sandboxé**, ne lit que ce fichier, sans réseau ni Trousseau.
+- Après chaque actualisation, l'app écrit un petit fichier JSON dans un **App Group** (limites, projection, historique de la fenêtre en cours) ; le widget, **sandboxé**, ne lit que ce fichier, sans réseau ni Trousseau.
+- Les points du graphique sont gardés en mémoire pendant que Pulse tourne : après un lancement, la courbe se remplit au fil des actualisations.
 - L'ouverture au démarrage repose sur `SMAppService`.
 
 > ⚠️ Pulse utilise des API internes, non documentées, de ces services. Elles peuvent changer sans préavis : une limite affichée « indisponible » vient souvent de là.
