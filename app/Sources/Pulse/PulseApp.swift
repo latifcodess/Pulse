@@ -1,235 +1,40 @@
+import AppKit
 import SwiftUI
-
-enum WindowID {
-    static let settings = "settings"
-    static let claudeLogin = "claude-login"
-    static let chatGptLogin = "chatgpt-login"
-    static let githubLogin = "github-login"
-    static let update = "update"
-}
 
 @main
 struct PulseApp: App {
-    @State private var app = AppModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        // Une puce par IA suivie dans la barre des menus, chacune avec son popover.
-        ServiceMenuBarItem(
-            model: app.claude, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
-        ServiceMenuBarItem(
-            model: app.chatgpt, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
-        ServiceMenuBarItem(
-            model: app.gemini, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
-        ServiceMenuBarItem(
-            model: app.copilot, alerts: app.alertCenter, updater: app.updater, popovers: app.popovers)
-
-        // Si aucune IA n'est suivie, cette icône garde un accès aux réglages.
-        MenuBarExtra(isInserted: Binding(get: { app.noServiceShown }, set: { _ in })) {
-            FallbackMenu(updater: app.updater)
-        } label: {
-            Image(systemName: "waveform.path.ecg")
-                .opensWindowsOnRequest(alerts: app.alertCenter, updater: app.updater)
-        }
-
-        Window("Réglages", id: WindowID.settings) {
-            SettingsView(app: app)
-        }
-        .windowResizability(.contentSize)
-        .defaultLaunchBehavior(.suppressed)
-        .restorationBehavior(.disabled)
-
-        Window("Mise à jour de Pulse", id: WindowID.update) {
-            UpdateWindow(updater: app.updater)
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-        // Au-dessus des autres fenêtres : à l'ouverture de session, d'autres
-        // apps se lancent en même temps et la cacheraient sinon.
-        .windowLevel(.floating)
-        .defaultLaunchBehavior(.suppressed)
-        .restorationBehavior(.disabled)
-
-        Window("Connexion à claude.ai", id: WindowID.claudeLogin) {
-            ClaudeLoginWindow(app: app)
-        }
-        .defaultSize(width: 520, height: 720)
-        .defaultLaunchBehavior(.suppressed)
-        .restorationBehavior(.disabled)
-
-        Window("Connexion à ChatGPT", id: WindowID.chatGptLogin) {
-            ChatGptLoginWindow(app: app)
-        }
-        .defaultSize(width: 520, height: 720)
-        .defaultLaunchBehavior(.suppressed)
-        .restorationBehavior(.disabled)
-
-        Window("Connexion à GitHub", id: WindowID.githubLogin) {
-            GitHubLoginWindow(app: app)
-        }
-        .windowResizability(.contentSize)
-        .defaultPosition(.center)
-        .defaultLaunchBehavior(.suppressed)
-        .restorationBehavior(.disabled)
+        // La barre des menus et les fenêtres sont gérées par AppKit
+        // (StatusBarController, WindowRouter) : SwiftUI n'a pas de scène à afficher.
+        Settings { EmptyView() }
     }
 }
 
-/// La puce d'une IA. Elle disparaît quand l'IA n'est plus suivie ; si
-/// l'utilisateur la retire de la barre (⌘-glisser), l'IA n'est plus suivie.
-private struct ServiceMenuBarItem: Scene {
-    let model: UsageModel
-    let alerts: AlertCenter
-    let updater: Updater
-    let popovers: PopoverCoordinator
-
-    var body: some Scene {
-        MenuBarExtra(isInserted: Binding(get: { model.isEnabled }, set: { model.isEnabled = $0 })) {
-            PopoverContent(model: model, updater: updater, popovers: popovers)
-        } label: {
-            let bar = model.bar
-            MenuBarLabel(logo: model.service.logo(), text: bar.text, level: bar.level)
-                .opensWindowsOnRequest(alerts: alerts, updater: updater)
-        }
-        .menuBarExtraStyle(.window)
-    }
-}
-
-/// Ouvre la fenêtre Réglages au premier plan, sur l'onglet demandé.
 @MainActor
-private func showSettings(tab: String, openWindow: OpenWindowAction) {
-    UserDefaults.standard.set(tab, forKey: SettingsTab.storageKey)
-    openWindow(id: WindowID.settings)
-    // L'app n'a pas d'icône dans le Dock : il faut l'activer pour que la
-    // fenêtre passe au premier plan.
-    NSApp.activate()
-}
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var app: AppModel?
+    private var statusBar: StatusBarController?
 
-/// Ouvre la fenêtre de mise à jour au premier plan.
-@MainActor
-private func showUpdateWindow(openWindow: OpenWindowAction) {
-    openWindow(id: WindowID.update)
-    NSApp.activate()
-}
-
-/// Ouvre une fenêtre quand on la demande hors d'une vue : clic sur une
-/// notification, ou mise à jour trouvée au lancement. Les puces de la barre
-/// des menus sont les seules vues toujours présentes : ce sont elles qui
-/// écoutent.
-private struct OpensWindowsOnRequest: ViewModifier {
-    let alerts: AlertCenter
-    let updater: Updater
-    @Environment(\.openWindow) private var openWindow
-
-    func body(content: Content) -> some View {
-        content
-            .onChange(of: alerts.settingsRequest) { _, request in
-                guard let request else { return }
-                if request.tab == AlertCenter.updateWindowTab {
-                    showUpdateWindow(openWindow: openWindow)
-                } else {
-                    showSettings(tab: request.tab, openWindow: openWindow)
-                }
-            }
-            .onChange(of: updater.windowRequest) { _, request in
-                if request != nil {
-                    showUpdateWindow(openWindow: openWindow)
-                }
-            }
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let app = AppModel()
+        self.app = app
+        WindowRouter.shared.app = app
+        statusBar = StatusBarController(app: app)
     }
-}
 
-extension View {
-    fileprivate func opensWindowsOnRequest(alerts: AlertCenter, updater: Updater) -> some View {
-        modifier(OpensWindowsOnRequest(alerts: alerts, updater: updater))
-    }
-}
-
-private struct FallbackMenu: View {
-    let updater: Updater
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Text("Aucune IA suivie")
-        Button("Réglages…") {
-            showSettings(tab: SettingsTab.general, openWindow: openWindow)
-        }
-        .keyboardShortcut(",")
-        Button("Rechercher les mises à jour…") {
-            showUpdateWindow(openWindow: openWindow)
-            Task { await updater.check(.user) }
-        }
-        Divider()
-        Button("Quitter Pulse") { NSApplication.shared.terminate(nil) }
-            .keyboardShortcut("q")
-    }
-}
-
-private struct PopoverContent: View {
-    let model: UsageModel
-    let updater: Updater
-    let popovers: PopoverCoordinator
-    @Environment(\.openWindow) private var openWindow
-    /// Ferme ce popover.
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        UsagePopover(
-            state: model.state,
-            service: model.service,
-            lastUpdated: model.lastUpdated,
-            thresholds: model.settings.thresholds,
-            refreshInterval: model.refreshInterval,
-            isRefreshing: model.isRefreshing,
-            updateVersion: updater.availableUpdate?.version,
-            onRefresh: { model.refreshNow() },
-            onSettings: { showSettings(tab: model.service.storageKey, openWindow: openWindow) },
-            onUpdate: { showUpdateWindow(openWindow: openWindow) },
-            onQuit: { NSApplication.shared.terminate(nil) }
-        )
-        .onAppear { popovers.opened(model.service) }
-        .onDisappear { popovers.closed(model.service) }
-        // Le popover d'une autre IA vient de s'ouvrir : celui-ci se ferme.
-        .onChange(of: popovers.active) { _, active in
-            if let active, active != model.service {
-                dismiss()
-            }
+    /// Un clic sur le widget : « pulse://ia/claude » ouvre la fenêtre de Claude.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard let id = urls.lazy.compactMap(PulseLink.serviceID(from:)).first,
+            let service = app?.services.first(where: { $0.service.storageKey == id })?.service
+        else { return }
+        Task { @MainActor in
+            // Au lancement par le lien, les éléments de la barre viennent
+            // d'apparaître : on leur laisse le temps d'être placés.
+            try? await Task.sleep(for: .milliseconds(400))
+            statusBar?.showDetail(for: service)
         }
     }
 }
 
-private struct ClaudeLoginWindow: View {
-    let app: AppModel
-    @Environment(\.dismissWindow) private var dismissWindow
-
-    var body: some View {
-        WebLoginView.claude { sessionKey in
-            app.connectClaudeAi(sessionKey: sessionKey)
-            dismissWindow(id: WindowID.claudeLogin)
-        }
-        .frame(minWidth: 420, minHeight: 560)
-    }
-}
-
-private struct ChatGptLoginWindow: View {
-    let app: AppModel
-    @Environment(\.dismissWindow) private var dismissWindow
-
-    var body: some View {
-        WebLoginView.chatGpt { cookie in
-            app.connectAccount(.chatGpt, secret: cookie)
-            dismissWindow(id: WindowID.chatGptLogin)
-        }
-        .frame(minWidth: 420, minHeight: 560)
-    }
-}
-
-private struct GitHubLoginWindow: View {
-    let app: AppModel
-    @Environment(\.dismissWindow) private var dismissWindow
-
-    var body: some View {
-        GitHubLoginView(monitor: app.monitor) { token in
-            app.connectAccount(.copilot, secret: token)
-            dismissWindow(id: WindowID.githubLogin)
-        }
-    }
-}

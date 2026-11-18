@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Pulse — réglages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#64D2FF}a:hover{color:#9FE3FF}
+</style>
+</helmet>
+<div style="width: 780px; height: 540px; box-sizing: border-box; background: #1E1E20; color: #F5F5F7; font-family: -apple-system, 'SF Pro Text', Inter, sans-serif; display: flex; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden">
+
+<nav aria-label="Sections des réglages" style="width: 210px; flex-shrink: 0; background: #252527; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid rgba(255,255,255,0.06)">
+<div style="display: flex; gap: 8px; padding: 2px 6px 18px" aria-hidden="true">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<sc-for list="{{general}}" as="item" hint-placeholder-count="2">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 7px; color: #F5F5F7; text-decoration: none; font-size: 13px">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: {{item.tint}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{item.initial}}</span>
+{{item.name}}
+</a>
+</sc-for>
+<div style="padding: 16px 10px 6px; font-size: 11px; color: #8E8E93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em">IA suivies</div>
+<sc-for list="{{ais}}" as="ai" hint-placeholder-count="4">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 7px; color: #F5F5F7; text-decoration: none; font-size: 13px; background: {{ai.bg}}">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: {{ai.tint}}; color: {{ai.ink}}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{ai.initial}}</span>
+<span style="flex: 1">{{ai.name}}</span>
+<span style="width: 7px; height: 7px; border-radius: 4px; background: {{ai.dot}}" aria-label="{{ai.state}}"></span>
+</a>
+</sc-for>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 22px 28px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Claude</h1>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #A1A1A6">Suivre
+<button aria-pressed="true" aria-label="Suivre Claude" style="width: 38px; height: 22px; border: none; border-radius: 11px; background: #30D158; position: relative; cursor: pointer; padding: 0"><span style="position: absolute; top: 2px; left: 18px; width: 18px; height: 18px; border-radius: 9px; background: #FFFFFF"></span></button>
+</label>
+</div>
+
+<section style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 12px; color: #A1A1A6; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em">Connexion</span>
+<div role="radiogroup" aria-label="Méthode de connexion" style="display: flex; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 2px; width: fit-content">
+<button role="radio" aria-checked="true" style="height: 28px; padding: 0 14px; border: none; border-radius: 6px; background: #48484A; color: #F5F5F7; font-size: 12px; font-weight: 500; font-family: inherit">Claude Code</button>
+<button role="radio" aria-checked="false" style="height: 28px; padding: 0 14px; border: none; border-radius: 6px; background: transparent; color: #A1A1A6; font-size: 12px; font-weight: 500; font-family: inherit">Compte claude.ai</button>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px">
+<span style="width: 8px; height: 8px; border-radius: 4px; background: #30D158"></span>
+Connecté via Claude Code · plan Max
+</div>
+<button style="height: 28px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; background: transparent; color: #F5F5F7; font-size: 12px; font-family: inherit">Se déconnecter</button>
+</div>
+</section>
+
+<section style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px">
+<span style="grid-column: 1 / -1; font-size: 12px; color: #A1A1A6; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em">Affichage</span>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px">Valeur dans la barre</span>
+<div style="display: flex; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 2px">
+<button style="flex: 1; height: 26px; border: none; border-radius: 6px; background: #48484A; color: #F5F5F7; font-size: 12px; font-family: inherit">Session</button>
+<button style="flex: 1; height: 26px; border: none; border-radius: 6px; background: transparent; color: #A1A1A6; font-size: 12px; font-family: inherit">Semaine</button>
+<button style="flex: 1; height: 26px; border: none; border-radius: 6px; background: transparent; color: #A1A1A6; font-size: 12px; font-family: inherit">Les deux</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 13px">Format</span>
+<div style="display: flex; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 2px">
+<button style="flex: 1; height: 26px; border: none; border-radius: 6px; background: #48484A; color: #F5F5F7; font-size: 12px; font-family: inherit">Utilisé</button>
+<button style="flex: 1; height: 26px; border: none; border-radius: 6px; background: transparent; color: #A1A1A6; font-size: 12px; font-family: inherit">Restant</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span>Seuil orange</span><span style="color: #FF9F0A; font-variant-numeric: tabular-nums">75 %</span></div>
+<div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.12); position: relative"><div style="width: 75%; height: 4px; border-radius: 2px; background: #FF9F0A"></div><span style="position: absolute; left: calc(75% - 8px); top: -6px; width: 16px; height: 16px; border-radius: 8px; background: #F5F5F7"></span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span>Seuil rouge</span><span style="color: #FF453A; font-variant-numeric: tabular-nums">90 %</span></div>
+<div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.12); position: relative"><div style="width: 90%; height: 4px; border-radius: 2px; background: #FF453A"></div><span style="position: absolute; left: calc(90% - 8px); top: -6px; width: 16px; height: 16px; border-radius: 8px; background: #F5F5F7"></span></div>
+</div>
+</section>
+
+<section style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 12px 16px">
+<div style="display: flex; align-items: center; gap: 14px">
+<span style="font-size: 13px">Aperçu</span>
+<span style="display: flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 6px; background: #000000; font-size: 13px; font-weight: 600">
+<span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(217,119,87,0.35); color: #F0A487; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center">C</span>
+<span style="color: #FF9F0A">78%</span>
+</span>
+</div>
+<label style="display: flex; align-items: center; gap: 10px; font-size: 13px">Actualiser toutes les
+<select style="height: 28px; border-radius: 7px; background: #3A3A3C; color: #F5F5F7; border: none; padding: 0 8px; font-size: 12px; font-family: inherit"><option>30 s</option><option selected>2 min</option><option>5 min</option><option>10 min</option></select>
+</label>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":780,"height":540}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      general: [
+        { initial: 'G', name: 'Général', tint: '#636366' },
+        { initial: '!', name: 'Alertes', tint: '#FF9F0A' }
+      ],
+      ais: [
+        { initial: 'C', name: 'Claude', tint: 'rgba(217,119,87,0.25)', ink: '#F0A487', dot: '#30D158', state: 'connecté', bg: 'rgba(255,255,255,0.08)' },
+        { initial: 'G', name: 'ChatGPT', tint: 'rgba(255,255,255,0.14)', ink: '#E5E5EA', dot: '#30D158', state: 'connecté', bg: 'transparent' },
+        { initial: 'G', name: 'Gemini', tint: 'rgba(94,92,230,0.28)', ink: '#B4B3FF', dot: '#30D158', state: 'connecté', bg: 'transparent' },
+        { initial: 'C', name: 'Copilot', tint: 'rgba(191,90,242,0.26)', ink: '#DDA6F7', dot: '#8E8E93', state: 'non connecté', bg: 'transparent' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -35,7 +35,7 @@ extension AiService {
     @MainActor
     var notConnectedHint: String {
         if self != .claude, ConnectionMethod.current(for: self) == .account {
-            return "Non connecté. Connectez votre \(accountName) dans les Réglages."
+            return "Non connecté. Connectez votre \(accountName.lowercasedFirst) dans les Réglages."
         }
         switch self {
         case .claude: return "Non connecté. Choisissez une méthode de connexion dans les Réglages."
@@ -48,7 +48,7 @@ extension AiService {
     @MainActor
     var expiredHint: String {
         if self != .claude, ConnectionMethod.current(for: self) == .account {
-            return "La connexion a expiré. Reconnectez votre \(accountName) dans les Réglages."
+            return "La connexion a expiré. Reconnectez votre \(accountName.lowercasedFirst) dans les Réglages."
         }
         switch self {
         case .claude:

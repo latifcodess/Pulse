@@ -57,10 +57,11 @@ struct Thresholds: Equatable {
 
     static let standard = Thresholds(warning: 75, critical: 90)
 
+    /// Orange à partir du seuil orange, rouge à partir du seuil rouge.
     func level(for percent: Double) -> UsageLevel {
-        if percent > Double(critical) {
+        if percent >= Double(critical) {
             .critical
-        } else if percent > Double(warning) {
+        } else if percent >= Double(warning) {
             .warning
         } else {
             .normal

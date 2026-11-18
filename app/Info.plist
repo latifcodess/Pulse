@@ -26,5 +26,17 @@
 	<string>$(TeamIdentifierPrefix)ch.latifcodess.pulse</string>
 	<key>LSUIElement</key>
 	<true/>
+	<!-- Liens « pulse://ia/claude » : un clic sur le widget ouvre la fenêtre de l'IA. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>ch.latifcodess.pulse</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>pulse</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

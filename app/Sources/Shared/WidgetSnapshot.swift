@@ -33,6 +33,14 @@ struct WidgetSnapshot: Codable, Sendable {
         var percent: Double
         var resetsAt: Date?
         var projectedFullAt: Date?
+        /// Les mesures de la fenêtre en cours, pour le graphique du grand
+        /// widget. Absent des fichiers écrits par une version plus ancienne.
+        var history: [Point]?
+    }
+
+    struct Point: Codable, Sendable {
+        var date: Date
+        var percent: Double
     }
 }
 
@@ -71,7 +79,40 @@ extension WidgetSnapshot {
     }
 }
 
+/// Le lien qui ouvre la fenêtre d'une IA : « pulse://ia/claude ».
+enum PulseLink {
+    static let scheme = "pulse"
+
+    static func url(serviceID: String) -> URL {
+        URL(string: "\(scheme)://ia/\(serviceID)")!
+    }
+
+    /// La clé de l'IA d'un lien Pulse, ou nil si ce n'en est pas un.
+    static func serviceID(from url: URL) -> String? {
+        guard url.scheme == scheme, url.host == "ia" else { return nil }
+        let id = url.lastPathComponent
+        return id.isEmpty || id == "/" ? nil : id
+    }
+}
+
 extension WidgetSnapshot.Service {
+    /// Le logo, d'après la clé de l'IA.
+    var logoKind: ServiceLogo.Kind { Self.kind(for: id) }
+
+    static func kind(for id: String) -> ServiceLogo.Kind {
+        switch id {
+        case "chatgpt": .chatGpt
+        case "gemini": .gemini
+        case "copilot": .copilot
+        default: .claude
+        }
+    }
+
+    /// La limite la plus proche d'être atteinte.
+    var nearestWindow: WidgetSnapshot.Window? {
+        windows.max { $0.percent < $1.percent }
+    }
+
     /// Les données ont plus de 15 min (ou il n'y en a jamais eu de valide).
     func isStale(at now: Date) -> Bool {
         guard let updatedAt else { return true }

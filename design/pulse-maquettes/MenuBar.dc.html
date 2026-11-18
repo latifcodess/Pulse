@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Pulse — barre des menus</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#64D2FF}a:hover{color:#9FE3FF}
+</style>
+</helmet>
+<div style="width: 840px; height: 300px; box-sizing: border-box; padding: 28px 40px; background: #3A3A3C; color: #F5F5F7; font-family: -apple-system, 'SF Pro Text', Inter, sans-serif; display: flex; flex-direction: column; gap: 22px">
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600">A · Logo + pourcentage</span>
+<div style="height: 30px; border-radius: 6px; background: rgba(20,20,22,0.92); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 14px; font-size: 13px; font-weight: 500">
+<span style="display: flex; align-items: center; gap: 12px; padding: 0 8px; height: 22px; border-radius: 5px; background: rgba(255,255,255,0.10)">
+<span style="display: flex; align-items: center; gap: 4px"><span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(217,119,87,0.35); color: #F0A487; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center">C</span><span style="color: #FF9F0A; font-variant-numeric: tabular-nums">78%</span></span>
+<span style="display: flex; align-items: center; gap: 4px"><span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(255,255,255,0.18); color: #E5E5EA; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center">G</span><span style="font-variant-numeric: tabular-nums">42%</span></span>
+<span style="display: flex; align-items: center; gap: 4px"><span style="width: 14px; height: 14px; border-radius: 4px; background: rgba(94,92,230,0.40); color: #C9C8FF; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center">G</span><span style="font-variant-numeric: tabular-nums">12%</span></span>
+</span>
+<span style="color: #D1D1D6">Wi-Fi</span><span style="color: #D1D1D6">mer. 18 nov. 12:57</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600">B · Mini anneaux</span>
+<div style="height: 30px; border-radius: 6px; background: rgba(20,20,22,0.92); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 14px; font-size: 13px; font-weight: 500">
+<span style="display: flex; align-items: center; gap: 8px; padding: 0 8px; height: 22px; border-radius: 5px; background: rgba(255,255,255,0.10)">
+<sc-for list="{{rings}}" as="r" hint-placeholder-count="4">
+<svg width="16" height="16" viewBox="0 0 36 36" role="img" aria-label="{{r.label}}">
+<circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6"></circle>
+<circle cx="18" cy="18" r="14" fill="none" stroke="{{r.color}}" stroke-width="6" stroke-dasharray="{{r.dash}}" transform="rotate(-90 18 18)"></circle>
+</svg>
+</sc-for>
+</span>
+<span style="color: #D1D1D6">Wi-Fi</span><span style="color: #D1D1D6">mer. 18 nov. 12:57</span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600">C · Compact (seulement l'IA la plus proche de sa limite)</span>
+<div style="height: 30px; border-radius: 6px; background: rgba(20,20,22,0.92); display: flex; align-items: center; justify-content: flex-end; gap: 14px; padding: 0 14px; font-size: 13px; font-weight: 500">
+<span style="display: flex; align-items: center; gap: 5px; padding: 0 8px; height: 22px; border-radius: 5px; background: rgba(255,255,255,0.10)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF9F0A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h4l3-8 4 16 3-8h6"></path></svg>
+<span style="color: #FF9F0A; font-variant-numeric: tabular-nums">78%</span>
+<span style="color: #A1A1A6; font-size: 12px">· 15:32</span>
+</span>
+<span style="color: #D1D1D6">Wi-Fi</span><span style="color: #D1D1D6">mer. 18 nov. 12:57</span>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":840,"height":300}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const C = 87.96;
+    const mk = (name, p, color) => ({ label: name + ' ' + p + ' %', color, dash: (p * C / 100).toFixed(1) + ' ' + C });
+    return {
+      rings: [
+        mk('Claude', 78, '#FF9F0A'),
+        mk('ChatGPT', 42, '#64D2FF'),
+        mk('Gemini', 12, '#64D2FF'),
+        mk('Copilot', 63, '#64D2FF')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

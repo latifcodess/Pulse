@@ -7,15 +7,20 @@ import PulseCore
 @Observable
 final class ClaudeAccount {
     private(set) var claudeAiConnected = false
+    /// Le plan de l'abonnement (« Max », « Pro »…), connu avec Claude Code.
+    private(set) var plan: String?
 
     /// Le Trousseau et le réseau sont bloquants : Task.detached les sort du
     /// thread principal pour ne pas figer l'interface.
     func fetchState(monitor: AiMonitor) async -> AiState {
         switch ClaudeAuthMethod.current {
         case .claudeCode:
-            return await Task.detached(priority: .utility) { Self.fetchWithClaudeCode(monitor) }.value
+            let (state, plan) = await Task.detached(priority: .utility) { Self.fetchWithClaudeCode(monitor) }.value
+            self.plan = plan.map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            return state
 
         case .claudeAi:
+            plan = nil
             let sessionKey = await Task.detached(priority: .utility) { ClaudeSessionKeyStore.read() }.value
             claudeAiConnected = sessionKey != nil
             guard let sessionKey else { return .notConnected }
@@ -37,12 +42,12 @@ final class ClaudeAccount {
         claudeAiConnected = false
     }
 
-    private nonisolated static func fetchWithClaudeCode(_ monitor: AiMonitor) -> AiState {
+    private nonisolated static func fetchWithClaudeCode(_ monitor: AiMonitor) -> (AiState, String?) {
         switch ClaudeCredentials.read() {
-        case .token(let token): monitor.refreshClaude(accessToken: token)
-        case .notConnected: .notConnected
-        case .expired: .expired
-        case .unavailable: .unavailable
+        case .token(let token, let plan): (monitor.refreshClaude(accessToken: token), plan)
+        case .notConnected: (.notConnected, nil)
+        case .expired: (.expired, nil)
+        case .unavailable: (.unavailable, nil)
         }
     }
 }

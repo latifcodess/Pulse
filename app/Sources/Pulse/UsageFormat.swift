@@ -21,8 +21,9 @@ enum UsageLevel {
 enum UsageFormat {
     private static let locale = Locale(identifier: "fr_FR")
 
+    /// « 78% », sans espace, comme dans les maquettes.
     static func percent(_ value: Double) -> String {
-        "\(Int(value.rounded())) %"
+        "\(Int(value.rounded()))%"
     }
 
     /// « Réinitialisé à 17:00 · dans 2 h 15 », avec le jour s'il ne s'agit pas d'aujourd'hui.

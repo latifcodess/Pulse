@@ -6,7 +6,6 @@ import SwiftUI
 /// quand une mise à jour est trouvée, ou depuis le popover et la notification.
 struct UpdateWindow: View {
     let updater: Updater
-    @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -102,6 +101,6 @@ struct UpdateWindow: View {
     }
 
     private func close() {
-        dismissWindow(id: WindowID.update)
+        WindowRouter.shared.close(WindowID.update)
     }
 }

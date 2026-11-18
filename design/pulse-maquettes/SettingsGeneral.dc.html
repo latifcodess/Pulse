@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Pulse — réglages généraux</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#64D2FF}a:hover{color:#9FE3FF}
+</style>
+</helmet>
+<div style="width: 780px; height: 600px; box-sizing: border-box; background: #1E1E20; color: #F5F5F7; font-family: -apple-system, 'SF Pro Text', Inter, sans-serif; display: flex; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden">
+
+<nav aria-label="Sections des réglages" style="width: 210px; flex-shrink: 0; background: #252527; padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid rgba(255,255,255,0.06)">
+<div style="display: flex; gap: 8px; padding: 2px 6px 18px" aria-hidden="true">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<a href="#" aria-current="page" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 7px; color: #F5F5F7; text-decoration: none; font-size: 13px; background: rgba(255,255,255,0.08)">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: #636366; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">G</span>Général</a>
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 7px; color: #F5F5F7; text-decoration: none; font-size: 13px">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: #FF9F0A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">!</span>Alertes</a>
+<div style="padding: 16px 10px 6px; font-size: 11px; color: #8E8E93; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em">IA suivies</div>
+<sc-for list="{{ais}}" as="ai" hint-placeholder-count="4">
+<a href="Settings.dc.html" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 7px; color: #F5F5F7; text-decoration: none; font-size: 13px">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: {{ai.tint}}; color: {{ai.ink}}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700">{{ai.initial}}</span>
+<span style="flex: 1">{{ai.name}}</span>
+<span style="width: 7px; height: 7px; border-radius: 4px; background: {{ai.dot}}" aria-label="{{ai.state}}"></span>
+</a>
+</sc-for>
+</nav>
+
+<main style="flex: 1; min-width: 0; padding: 22px 28px; display: flex; flex-direction: column; gap: 16px; overflow: hidden">
+<h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">Général</h1>
+
+<section style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="font-size: 12px; color: #A1A1A6; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em">Style dans la barre des menus</span>
+<div role="radiogroup" aria-label="Style dans la barre des menus" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{styles}}" as="s" hint-placeholder-count="3">
+<button role="radio" aria-checked="{{s.checked}}" onClick="{{s.pick}}" style="display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 10px; border-radius: 10px; background: {{s.bg}}; border: 2px solid {{s.border}}; color: #F5F5F7; font-family: inherit; text-align: left; cursor: pointer">
+<span style="height: 44px; border-radius: 7px; background: #0E0E10; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 6px; overflow: hidden; white-space: nowrap; font-size: 11px; font-weight: 600">
+<sc-if value="{{s.isA}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; align-items: center; gap: 2px"><span style="width: 10px; height: 10px; border-radius: 3px; background: rgba(217,119,87,0.4); flex-shrink: 0"></span><span style="color: #FF9F0A">78%</span></span>
+<span style="display: flex; align-items: center; gap: 2px"><span style="width: 10px; height: 10px; border-radius: 3px; background: rgba(255,255,255,0.22); flex-shrink: 0"></span>42%</span>
+<span style="color: #A1A1A6; font-weight: 500">+2</span>
+</sc-if>
+<sc-if value="{{s.isB}}" hint-placeholder-val="{{ false }}">
+<svg width="14" height="14" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6"></circle><circle cx="18" cy="18" r="14" fill="none" stroke="#FF9F0A" stroke-width="6" stroke-dasharray="68.6 88" transform="rotate(-90 18 18)"></circle></svg>
+<svg width="14" height="14" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6"></circle><circle cx="18" cy="18" r="14" fill="none" stroke="#64D2FF" stroke-width="6" stroke-dasharray="37 88" transform="rotate(-90 18 18)"></circle></svg>
+<svg width="14" height="14" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6"></circle><circle cx="18" cy="18" r="14" fill="none" stroke="#64D2FF" stroke-width="6" stroke-dasharray="10.6 88" transform="rotate(-90 18 18)"></circle></svg>
+</sc-if>
+<sc-if value="{{s.isC}}" hint-placeholder-val="{{ false }}">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FF9F0A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h4l3-8 4 16 3-8h6"></path></svg>
+<span style="color: #FF9F0A">78%</span><span style="color: #A1A1A6; font-weight: 500">· 15:32</span>
+
+</sc-if>
+</span>
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 13px; font-weight: 600">{{s.name}}</span>
+<span style="font-size: 12px; color: #A1A1A6; line-height: 1.35">{{s.desc}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 4px 16px; display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.06)">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Regrouper les IA dans un seul élément</span><span style="font-size: 12px; color: #A1A1A6">Désactivé : chaque IA a sa propre icône, déplaçable avec ⌘</span></span>
+<button aria-pressed="true" aria-label="Regrouper les IA" style="width: 38px; height: 22px; border: none; border-radius: 11px; background: #30D158; position: relative; padding: 0; cursor: pointer"><span style="position: absolute; top: 2px; left: 18px; width: 18px; height: 18px; border-radius: 9px; background: #FFFFFF"></span></button>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.06)">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px">Masquer une IA tant qu'elle est sous</span><span style="font-size: 12px; color: #A1A1A6">La barre reste discrète jusqu'à ce que ça compte</span></span>
+<select aria-label="Seuil de masquage" style="height: 28px; border-radius: 7px; background: #3A3A3C; color: #F5F5F7; border: none; padding: 0 8px; font-size: 12px; font-family: inherit"><option selected>Jamais</option><option>25 %</option><option>50 %</option><option>75 %</option></select>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; min-height: 48px">
+<span style="font-size: 13px">Ouvrir Pulse au démarrage</span>
+<button aria-pressed="true" aria-label="Ouvrir au démarrage" style="width: 38px; height: 22px; border: none; border-radius: 11px; background: #30D158; position: relative; padding: 0; cursor: pointer"><span style="position: absolute; top: 2px; left: 18px; width: 18px; height: 18px; border-radius: 9px; background: #FFFFFF"></span></button>
+</div>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":780,"height":600}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { style: 'A' };
+  }
+  renderVals() {
+    const defs = [
+      { id: 'A', name: 'Logo + %', desc: 'Toutes les IA, lisible d’un coup d’œil.' },
+      { id: 'B', name: 'Anneaux', desc: 'Le plus compact, idéal avec une encoche.' },
+      { id: 'C', name: 'Compact', desc: 'Seulement l’IA la plus proche de sa limite ; un clic ouvre sa fenêtre.' }
+    ];
+    return {
+      styles: defs.map((d) => {
+        const on = this.state.style === d.id;
+        return {
+          ...d,
+          isA: d.id === 'A', isB: d.id === 'B', isC: d.id === 'C',
+          checked: on ? 'true' : 'false',
+          bg: on ? 'rgba(100,210,255,0.08)' : 'rgba(255,255,255,0.03)',
+          border: on ? '#64D2FF' : 'rgba(255,255,255,0.08)',
+          pick: () => this.setState({ style: d.id })
+        };
+      }),
+      ais: [
+        { initial: 'C', name: 'Claude', tint: 'rgba(217,119,87,0.25)', ink: '#F0A487', dot: '#30D158', state: 'connecté' },
+        { initial: 'G', name: 'ChatGPT', tint: 'rgba(255,255,255,0.14)', ink: '#E5E5EA', dot: '#30D158', state: 'connecté' },
+        { initial: 'G', name: 'Gemini', tint: 'rgba(94,92,230,0.28)', ink: '#B4B3FF', dot: '#30D158', state: 'connecté' },
+        { initial: 'C', name: 'Copilot', tint: 'rgba(191,90,242,0.26)', ink: '#DDA6F7', dot: '#8E8E93', state: 'non connecté' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

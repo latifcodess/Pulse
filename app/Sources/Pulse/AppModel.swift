@@ -19,14 +19,25 @@ final class AppModel {
     let launchAtLogin = LaunchAtLogin()
     let alertCenter = AlertCenter()
     let updater = Updater()
-    let popovers = PopoverCoordinator()
+    /// Les points du graphique de la fenêtre de chaque IA.
+    let history = UsageHistoryRecorder()
+    /// Style de la barre des menus, regroupement, masquage.
+    let menuBar = MenuBarPreferences()
     private let widgetExporter = WidgetExporter()
 
     /// Dans l'ordre de la barre des menus et des onglets des réglages.
     var services: [UsageModel] { [claude, chatgpt, gemini, copilot] }
 
-    /// Aucune puce dans la barre : l'icône de Pulse prend le relais.
-    var noServiceShown: Bool { !services.contains(where: \.isEnabled) }
+    /// Les IA suivies.
+    var followed: [UsageModel] { services.filter(\.isEnabled) }
+
+    /// L'IA suivie la plus proche de sa limite, parmi `candidates` (par
+    /// défaut les IA suivies). Sans valeur connue : la première.
+    func nearest(among candidates: [UsageModel]? = nil) -> UsageModel? {
+        let models = candidates ?? followed
+        let known = models.compactMap { model in model.highestPercent.map { (model, $0) } }
+        return known.max { $0.1 < $1.1 }?.0 ?? models.first
+    }
 
     init() {
         let monitor = AiMonitor()
@@ -74,6 +85,9 @@ final class AppModel {
         for model in services {
             model.onNewState = { [alertCenter, weak self] service, state in
                 alertCenter.handle(service: service, state: state)
+                if case .ok(let usage) = state {
+                    self?.history.record(service, windows: usage.windows)
+                }
                 self?.exportForWidget()
             }
             model.onFollowChange = { [weak self] in
@@ -88,7 +102,7 @@ final class AppModel {
 
     /// Le fichier lu par le widget (voir WidgetExporter).
     private func exportForWidget() {
-        widgetExporter.scheduleExport(of: services)
+        widgetExporter.scheduleExport(of: services, history: history)
     }
 
     func connectClaudeAi(sessionKey: String) {

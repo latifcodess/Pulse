@@ -97,6 +97,16 @@ final class UsageModel {
         }
     }
 
+    /// Le % de la limite la plus proche d'être atteinte, s'il est connu.
+    var highestPercent: Double? {
+        windows.map(\.percent).max()
+    }
+
+    /// La première heure à laquelle une limite sera atteinte, au rythme actuel.
+    var earliestProjection: Date? {
+        windows.compactMap(\.projectedFullAt).min().map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
     /// Un compte est connecté : l'API a répondu, même sans données exploitables.
     var isSignedIn: Bool {
         switch state {

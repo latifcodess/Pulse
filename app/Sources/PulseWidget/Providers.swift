@@ -5,8 +5,12 @@ struct PulseEntry: TimelineEntry {
     let date: Date
     /// nil : Pulse n'a encore rien écrit (ou le fichier est illisible).
     let snapshot: WidgetSnapshot?
-    /// L'IA choisie (petit widget seulement).
+    /// L'IA choisie (petit et grand widgets).
     var serviceID: String?
+
+    var service: WidgetSnapshot.Service? {
+        snapshot?.services.first { $0.id == serviceID }
+    }
 }
 
 extension PulseEntry {
@@ -26,23 +30,33 @@ extension PulseEntry {
         PulseEntry(date: .now, snapshot: WidgetSnapshot.read(), serviceID: serviceID)
     }
 
-    /// Données d'exemple, pour la galerie des widgets.
+    /// Les valeurs de la maquette, pour la galerie des widgets.
     static func placeholder(serviceID: String?) -> PulseEntry {
         let now = Date.now
-        func service(_ id: String, _ title: String, _ percents: [Double]) -> WidgetSnapshot.Service {
+        let hour: TimeInterval = 3600
+        // La session de Claude monte depuis 3 h : 100 % vers +1 h 30, reset à +2 h.
+        let history = stride(from: -3 * hour, through: 0, by: hour / 4).map { offset in
+            WidgetSnapshot.Point(date: now.addingTimeInterval(offset), percent: 78 * pow((offset + 3 * hour) / (3 * hour), 1.4))
+        }
+        func window(_ label: String, _ percent: Double, reset: TimeInterval, full: TimeInterval? = nil,
+                    history: [WidgetSnapshot.Point]? = nil) -> WidgetSnapshot.Window {
+            WidgetSnapshot.Window(
+                label: label, percent: percent, resetsAt: now.addingTimeInterval(reset),
+                projectedFullAt: full.map(now.addingTimeInterval), history: history)
+        }
+        func service(_ id: String, _ title: String, _ windows: [WidgetSnapshot.Window]) -> WidgetSnapshot.Service {
             WidgetSnapshot.Service(
                 id: id, title: title, followed: true, state: .ok, updatedAt: now, warning: 75, critical: 90,
-                windows: percents.enumerated().map { index, percent in
-                    WidgetSnapshot.Window(
-                        label: index == 0 ? "Session" : "Semaine", percent: percent,
-                        resetsAt: now.addingTimeInterval(index == 0 ? 2 * 3600 : 4 * 86400), projectedFullAt: nil)
-                })
+                windows: windows)
         }
         let snapshot = WidgetSnapshot(writtenAt: now, services: [
-            service("claude", "Claude", [42, 18]),
-            service("chatgpt", "ChatGPT", [77, 30]),
-            service("gemini", "Gemini", [12]),
-            service("copilot", "Copilot", [93]),
+            service("claude", "Claude", [
+                window("Session (5 h)", 78, reset: 2 * hour, full: 1.5 * hour, history: history),
+                window("Semaine", 41, reset: 4 * 86400),
+            ]),
+            service("chatgpt", "ChatGPT", [window("Session (5 h)", 42, reset: 3 * hour)]),
+            service("gemini", "Gemini", [window("Jour", 12, reset: 20 * hour)]),
+            service("copilot", "Copilot", [window("Mois", 63, reset: 12 * 86400)]),
         ])
         return PulseEntry(date: now, snapshot: snapshot, serviceID: serviceID)
     }

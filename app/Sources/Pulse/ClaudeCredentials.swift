@@ -5,7 +5,8 @@ import Security
 /// à chaque actualisation et jamais conservé : c'est Claude Code qui le renouvelle.
 enum ClaudeCredentials {
     enum Result {
-        case token(String)
+        /// Le token, et le plan de l'abonnement (« max », « pro »…) s'il est indiqué.
+        case token(String, plan: String?)
         case notConnected
         case expired
         case unavailable
@@ -48,7 +49,8 @@ enum ClaudeCredentials {
         if let expiresAt = oauth["expiresAt"] as? Double, isPast(expiresAt) {
             return .expired
         }
-        return .token(token)
+        let plan = (oauth["subscriptionType"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        return .token(token, plan: plan)
     }
 
     /// expiresAt est en millisecondes ; une valeur plus petite est lue en secondes.

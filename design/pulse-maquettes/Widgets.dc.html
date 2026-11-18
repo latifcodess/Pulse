@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Pulse — widgets</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#64D2FF}a:hover{color:#9FE3FF}
+</style>
+</helmet>
+<div style="width: 1060px; height: 520px; box-sizing: border-box; padding: 36px 40px; background: #2C3440; color: #F5F5F7; font-family: -apple-system, 'SF Pro Text', Inter, sans-serif; display: flex; gap: 40px; align-items: flex-start">
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600">Petit · une IA au choix</span>
+<div style="width: 170px; height: 170px; box-sizing: border-box; border-radius: 22px; background: #1C1C1E; padding: 14px; display: flex; flex-direction: column; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 6px">
+<span style="width: 18px; height: 18px; border-radius: 5px; background: rgba(217,119,87,0.25); color: #F0A487; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">C</span>
+<span style="font-size: 13px; font-weight: 600">Claude</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="position: relative; width: 64px; height: 64px">
+<svg width="64" height="64" viewBox="0 0 100 100" role="img" aria-label="Session Claude à 78 %">
+<circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="12"></circle>
+<circle cx="50" cy="50" r="40" fill="none" stroke="#FF9F0A" stroke-width="12" stroke-linecap="round" stroke-dasharray="196 251.3" transform="rotate(-90 50 50)"></circle>
+</svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700">78%</span>
+</div>
+<span style="display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #A1A1A6">Session<br>5 h</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 12px; font-weight: 600; color: #FFB340">Limite vers 15:32</span>
+<span style="font-size: 11px; color: #A1A1A6">Reset à 17:00</span>
+</div>
+</div>
+
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600; margin-top: 14px">Petit · données périmées</span>
+<div style="width: 170px; height: 170px; box-sizing: border-box; border-radius: 22px; background: #1C1C1E; padding: 14px; display: flex; flex-direction: column; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 6px">
+<span style="width: 18px; height: 18px; border-radius: 5px; background: rgba(255,255,255,0.14); color: #E5E5EA; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center">G</span>
+<span style="font-size: 13px; font-weight: 600">ChatGPT</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="position: relative; width: 64px; height: 64px">
+<svg width="64" height="64" viewBox="0 0 100 100" role="img" aria-label="ChatGPT à 42 %, données anciennes">
+<circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="12"></circle>
+<circle cx="50" cy="50" r="40" fill="none" stroke="#636366" stroke-width="12" stroke-linecap="round" stroke-dasharray="105.5 251.3" transform="rotate(-90 50 50)"></circle>
+</svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #8E8E93">42%</span>
+</div>
+<span style="font-size: 11px; color: #8E8E93">Session<br>5 h</span>
+</div>
+<div style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #A1A1A6">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+Il y a 32 min
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600">Moyen · toutes les IA</span>
+<div style="width: 364px; height: 170px; box-sizing: border-box; border-radius: 22px; background: #1C1C1E; padding: 14px 16px; display: flex; flex-direction: column; gap: 9px">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 10px">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: {{r.tint}}; color: {{r.ink}}; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0">{{r.initial}}</span>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<div style="display: flex; justify-content: space-between; font-size: 12px">
+<span style="font-weight: 600">{{r.name}}</span>
+<span style="color: {{r.subColor}}">{{r.sub}}</span>
+</div>
+<div style="height: 5px; border-radius: 3px; background: rgba(255,255,255,0.10)"><div style="width: {{r.width}}; height: 5px; border-radius: 3px; background: {{r.color}}"></div></div>
+</div>
+<span style="width: 36px; text-align: right; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: {{r.color}}">{{r.pct}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-size: 12px; color: #D1D1D6; font-weight: 600">Grand · une IA avec projection</span>
+<div style="width: 364px; height: 382px; box-sizing: border-box; border-radius: 22px; background: #1C1C1E; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="width: 22px; height: 22px; border-radius: 6px; background: rgba(217,119,87,0.25); color: #F0A487; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">C</span>
+<span style="font-size: 14px; font-weight: 600">Claude</span>
+</div>
+<span style="font-size: 11px; color: #A1A1A6">il y a 1 min</span>
+</div>
+<div style="display: flex; align-items: baseline; gap: 8px">
+<span style="font-size: 32px; font-weight: 700; letter-spacing: -0.03em; color: #FF9F0A">78%</span>
+<span style="font-size: 12px; color: #A1A1A6">de la session 5 h</span>
+</div>
+<div style="position: relative">
+<svg width="100%" height="110" viewBox="0 0 300 110" preserveAspectRatio="none" role="img" aria-label="Utilisation depuis 12:00, projection à 100 % vers 15:32, reset à 17:00">
+<line x1="0" y1="4" x2="300" y2="4" stroke="rgba(255,69,58,0.45)" stroke-width="1" stroke-dasharray="3 4"></line>
+<line x1="0" y1="106" x2="300" y2="106" stroke="rgba(255,255,255,0.10)" stroke-width="1"></line>
+<path d="M0,106 L30,98 L60,85.6 L90,74.3 L120,60.9 L150,41.4 L175,26 L175,106 Z" fill="rgba(255,159,10,0.16)"></path>
+<path d="M0,106 L30,98 L60,85.6 L90,74.3 L120,60.9 L150,41.4 L175,26" fill="none" stroke="#FF9F0A" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"></path>
+<path d="M175,26 L212,4" fill="none" stroke="#FF9F0A" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"></path>
+<line x1="299" y1="4" x2="299" y2="106" stroke="rgba(100,210,255,0.6)" stroke-width="1.5" stroke-dasharray="2 3"></line>
+<circle cx="212" cy="4" r="3.5" fill="#FF453A"></circle>
+</svg>
+<span style="position: absolute; left: 62%; top: 10px; font-size: 11px; font-weight: 600; color: #FF6961; background: #1C1C1E; padding: 0 3px">15:32</span>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 10px; color: #8E8E93; font-variant-numeric: tabular-nums; margin-top: -6px">
+<span>12:00</span><span>14:00</span><span>16:00</span><span style="color: #64D2FF">17:00</span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; margin-top: auto">
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; justify-content: space-between; font-size: 12px"><span style="font-weight: 600">Session (5 h)</span><span style="color: #FFB340">Limite vers 15:32</span></div>
+<div style="height: 5px; border-radius: 3px; background: rgba(255,255,255,0.10)"><div style="width: 78%; height: 5px; border-radius: 3px; background: #FF9F0A"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 5px">
+<div style="display: flex; justify-content: space-between; font-size: 12px"><span style="font-weight: 600">Semaine · 41%</span><span style="color: #A1A1A6">Reset lun. 09:00</span></div>
+<div style="height: 5px; border-radius: 3px; background: rgba(255,255,255,0.10)"><div style="width: 41%; height: 5px; border-radius: 3px; background: #64D2FF"></div></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1060,"height":520}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const level = (p) => p >= 90 ? '#FF453A' : p >= 75 ? '#FF9F0A' : '#64D2FF';
+    const data = [
+      { initial: 'C', name: 'Claude', p: 78, sub: 'Limite vers 15:32', warn: true, tint: 'rgba(217,119,87,0.25)', ink: '#F0A487' },
+      { initial: 'G', name: 'ChatGPT', p: 42, sub: 'Reset 18:10', tint: 'rgba(255,255,255,0.14)', ink: '#E5E5EA' },
+      { initial: 'G', name: 'Gemini', p: 12, sub: 'Reset demain', tint: 'rgba(94,92,230,0.28)', ink: '#B4B3FF' },
+      { initial: 'C', name: 'Copilot', p: 63, sub: 'Reset 1 déc.', tint: 'rgba(191,90,242,0.26)', ink: '#DDA6F7' }
+    ];
+    return {
+      rows: data.map((d) => ({
+        ...d,
+        pct: d.p + '%',
+        width: d.p + '%',
+        color: level(d.p),
+        subColor: d.warn ? '#FFB340' : '#A1A1A6'
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

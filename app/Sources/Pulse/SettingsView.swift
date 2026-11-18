@@ -2,41 +2,53 @@ import AppKit
 import PulseCore
 import SwiftUI
 
-/// La fenêtre Réglages : un onglet Général et un onglet par IA.
+/// La fenêtre Réglages (maquettes design/pulse-maquettes/Settings.dc.html et
+/// SettingsGeneral.dc.html) : barre latérale avec Général, Alertes et les IA,
+/// et la page choisie à droite.
 struct SettingsView: View {
     let app: AppModel
 
-    /// L'onglet affiché : "general" ou la clé d'une IA. Le popover le change
-    /// pour ouvrir directement l'onglet de son IA.
+    /// La page affichée : "general", "alerts" ou la clé d'une IA. La fenêtre
+    /// d'une IA le change pour ouvrir directement sa page.
     @AppStorage(SettingsTab.storageKey) private var tab = SettingsTab.general
 
     var body: some View {
-        TabView(selection: $tab) {
-            GeneralSettingsTab(app: app)
-                .tabItem { Label("Général", systemImage: "gearshape") }
-                .tag(SettingsTab.general)
+        // Deux colonnes fixes plutôt que NavigationSplitView : sur macOS 26,
+        // sa barre latérale flotte dans un panneau vitré, loin de la maquette.
+        HStack(spacing: 0) {
+            SettingsSidebar(app: app, selection: $tab)
+                .frame(width: 210)
+                .overlay(alignment: .trailing) {
+                    Rectangle().fill(PulseTheme.cardBorder).frame(width: 1)
+                }
+            ScrollView {
+                page
+                    .padding(EdgeInsets(top: 22, leading: 28, bottom: 24, trailing: 28))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollIndicators(.automatic)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(PulseTheme.settingsBackground)
+        }
+        .ignoresSafeArea()
+        .frame(minWidth: 780)
+        .foregroundStyle(PulseTheme.text)
+        .environment(\.colorScheme, .dark)
+    }
 
-            AlertsSettingsTab(alerts: app.alertCenter, services: app.services.map(\.service))
-                .tabItem { Label("Alertes", systemImage: "bell") }
-                .tag(SettingsTab.alerts)
-
-            ForEach(app.services, id: \.service) { model in
-                ServiceSettingsTab(app: app, model: model)
-                    .tabItem { Label { Text(model.service.title) } icon: { Image(nsImage: model.service.logo()) } }
-                    .tag(model.service.storageKey)
+    @ViewBuilder
+    private var page: some View {
+        switch tab {
+        case SettingsTab.alerts:
+            AlertsSettingsPage(alerts: app.alertCenter, services: app.services.map(\.service))
+        default:
+            if let model = app.services.first(where: { $0.service.storageKey == tab }) {
+                ServiceSettingsPage(app: app, model: model)
+                    .id(tab)
+            } else {
+                GeneralSettingsPage(app: app)
             }
         }
-        .frame(width: 520, height: 700)
-    }
-}
-
-extension View {
-    /// Une note sous une section : en gris, alignée à gauche comme le reste
-    /// du formulaire (par défaut, macOS l'aligne à droite).
-    func sectionFooter() -> some View {
-        foregroundStyle(.secondary)
-            .multilineTextAlignment(.leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -46,52 +58,238 @@ enum SettingsTab {
     static let alerts = "alerts"
 }
 
+// MARK: - Barre latérale
+
+private struct SettingsSidebar: View {
+    let app: AppModel
+    @Binding var selection: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            // La place des boutons de la fenêtre (fermer, réduire).
+            Color.clear.frame(height: 32)
+
+            row(SettingsTab.general, title: "Général") {
+                SymbolBadge(systemImage: "gearshape.fill", color: Color(hex: 0x636366))
+            }
+            row(SettingsTab.alerts, title: "Alertes") {
+                SymbolBadge(systemImage: "bell.fill", color: PulseTheme.warning)
+            }
+
+            Text("IA suivies".uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .kerning(0.44)
+                .foregroundStyle(PulseTheme.tertiary)
+                .padding(EdgeInsets(top: 16, leading: 10, bottom: 6, trailing: 10))
+                .accessibilityAddTraits(.isHeader)
+
+            ForEach(app.services, id: \.service) { model in
+                let isConnected = model.isEnabled && model.isSignedIn
+                row(model.service.storageKey, title: model.service.title, trailing: {
+                    StatusDot(color: isConnected ? PulseTheme.connected : PulseTheme.disconnected, size: 7)
+                        .accessibilityLabel(isConnected ? "connecté" : (model.isEnabled ? "non connecté" : "non suivi"))
+                }) {
+                    LogoBadge(kind: model.service.logoKind, size: 16)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(EdgeInsets(top: 14, leading: 10, bottom: 14, trailing: 10))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(PulseTheme.sidebar)
+        .ignoresSafeArea()
+    }
+
+    private func row(
+        _ tab: String, title: String,
+        @ViewBuilder trailing: () -> some View = { EmptyView() },
+        @ViewBuilder icon: () -> some View
+    ) -> some View {
+        let isSelected = selection == tab
+        return Button {
+            selection = tab
+        } label: {
+            HStack(spacing: 10) {
+                icon()
+                Text(title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(PulseTheme.text)
+                Spacer(minLength: 4)
+                trailing()
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .background(isSelected ? Color.white.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(RoundedRectangle(cornerRadius: 7))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// Pastille de 22 pt avec un symbole blanc (Général, Alertes).
+private struct SymbolBadge: View {
+    let systemImage: String
+    let color: Color
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(color)
+            .frame(width: 22, height: 22)
+            .overlay {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+    }
+}
+
 // MARK: - Général
 
-private struct GeneralSettingsTab: View {
+private struct GeneralSettingsPage: View {
     let app: AppModel
 
     var body: some View {
+        @Bindable var menuBar = app.menuBar
         @Bindable var launchAtLogin = app.launchAtLogin
-        Form {
-            Section("Démarrage") {
-                Toggle("Ouvrir Pulse au démarrage de la session", isOn: $launchAtLogin.isEnabled)
-                if launchAtLogin.needsApproval {
-                    LabeledContent {
-                        Button("Ouvrir les Réglages Système") { launchAtLogin.openSystemSettings() }
-                    } label: {
-                        Text("macOS attend votre accord dans Réglages Système › Général › Ouverture.")
-                            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            PageTitle("Général")
+
+            SettingsSection(title: "Style dans la barre des menus") {
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(MenuBarStyle.allCases) { style in
+                        StyleCard(style: style, isSelected: menuBar.style == style) {
+                            withAnimation(.smooth(duration: 0.2)) { menuBar.style = style }
+                        }
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            SettingsSection(padding: EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16), spacing: 0) {
+                SettingsRow(
+                    title: "Regrouper les IA dans un seul élément",
+                    subtitle: menuBar.style == .compact
+                        ? "Le style Compact affiche toujours un seul élément"
+                        : "Désactivé : chaque IA a sa propre icône, déplaçable avec ⌘"
+                ) {
+                    PulseSwitch(isOn: $menuBar.groupsServices, label: "Regrouper les IA")
+                        .disabled(menuBar.style == .compact)
+                }
+                SettingsRow(
+                    title: "Masquer une IA tant qu'elle est sous",
+                    subtitle: "La barre reste discrète jusqu'à ce que ça compte"
+                ) {
+                    PopupMenu(
+                        options: MenuBarPreferences.hideOptions.map { ($0, $0 == 0 ? "Jamais" : "\($0) %") },
+                        selection: $menuBar.hideBelow,
+                        label: "Seuil de masquage")
+                }
+                SettingsRow(
+                    title: "Ouvrir Pulse au démarrage",
+                    subtitle: launchAtLogin.needsApproval
+                        ? "macOS attend votre accord dans Réglages Système › Général › Ouverture."
+                        : nil,
+                    showsDivider: false
+                ) {
+                    HStack(spacing: 10) {
+                        if launchAtLogin.needsApproval {
+                            Button("Ouvrir les Réglages Système") { launchAtLogin.openSystemSettings() }
+                                .buttonStyle(.pulse)
+                        }
+                        PulseSwitch(isOn: $launchAtLogin.isEnabled, label: "Ouvrir au démarrage")
                     }
                 }
                 if let error = launchAtLogin.errorMessage {
-                    Label(error, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
+                    SettingsNote(error, color: PulseTheme.warningText)
+                        .padding(.bottom, 10)
                 }
-            }
-
-            Section {
-                ForEach(app.services, id: \.service) { model in
-                    @Bindable var model = model
-                    Toggle(isOn: $model.isEnabled) {
-                        Label { Text(model.service.title) } icon: { Image(nsImage: model.service.logo()) }
-                    }
-                }
-            } header: {
-                Text("IA suivies")
-            } footer: {
-                Text("Si aucune IA n'est suivie, l'icône de Pulse reste dans la barre des menus pour rouvrir ces réglages.")
-                    .sectionFooter()
             }
 
             UpdatesSection(updater: app.updater)
+        }
+        .onAppear { launchAtLogin.reload() }
+    }
+}
 
-            Section {
-                Button("Quitter Pulse") { NSApplication.shared.terminate(nil) }
+/// Une carte de style : aperçu sur fond noir, nom et description. Bordure
+/// bleue de 2 pt quand elle est choisie.
+private struct StyleCard: View {
+    let style: MenuBarStyle
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                StylePreview(style: style)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color(hex: 0x0E0E10), in: RoundedRectangle(cornerRadius: 7))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(style.title)
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(style.subtitle)
+                        .font(.system(size: 12))
+                        .foregroundStyle(PulseTheme.secondary)
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(
+                isSelected ? PulseTheme.accent.opacity(0.08) : Color.white.opacity(0.03),
+                in: RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(isSelected ? PulseTheme.accent : Color.white.opacity(0.08), lineWidth: 2))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// La barre des menus en miniature, avec les valeurs de la maquette.
+private struct StylePreview: View {
+    let style: MenuBarStyle
+
+    var body: some View {
+        HStack(spacing: 6) {
+            switch style {
+            case .logoPercent:
+                HStack(spacing: 2) {
+                    LogoBadge(kind: .claude, size: 9)
+                    Text("78%").foregroundStyle(PulseTheme.warning)
+                }
+                HStack(spacing: 2) {
+                    LogoBadge(kind: .chatGpt, size: 9)
+                    Text("42%")
+                }
+                Text("+2")
+                    .fontWeight(.medium)
+                    .foregroundStyle(PulseTheme.secondary)
+            case .rings:
+                UsageRing(percent: 78, color: PulseTheme.warning, size: 14)
+                UsageRing(percent: 42, color: PulseTheme.accent, size: 14)
+                UsageRing(percent: 12, color: PulseTheme.accent, size: 14)
+            case .compact:
+                PulseGlyph()
+                    .stroke(PulseTheme.warning, style: StrokeStyle(lineWidth: 2.6 * 13 / 24, lineCap: .round, lineJoin: .round))
+                    .frame(width: 13, height: 13)
+                Text("78%").foregroundStyle(PulseTheme.warning)
+                Text("· 15:32")
+                    .fontWeight(.medium)
+                    .foregroundStyle(PulseTheme.secondary)
             }
         }
-        .formStyle(.grouped)
-        .onAppear { launchAtLogin.reload() }
+        .font(.system(size: 11, weight: .semibold))
+        .monospacedDigit()
+        .lineLimit(1)
+        .padding(.horizontal, 6)
+        .accessibilityHidden(true)
     }
 }
 
@@ -101,489 +299,88 @@ private struct UpdatesSection: View {
     @Bindable var updater: Updater
 
     var body: some View {
-        Section {
-            LabeledContent("Version installée", value: updater.currentVersion)
-            Toggle("Rechercher automatiquement (au lancement, puis chaque jour)", isOn: $updater.automaticChecks)
-
-            switch updater.phase {
-            case .available(let info):
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("Pulse \(info.version) est disponible", systemImage: "arrow.down.circle.fill")
-                        .font(.headline)
-                    if !info.notes.isEmpty {
-                        Text(info.notes)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(8)
-                            .textSelection(.enabled)
-                    }
-                    HStack {
-                        Button("Installer et relancer") {
-                            Task { await updater.install(info) }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        if let page = URL(string: info.pageUrl), !info.pageUrl.isEmpty {
-                            Link("Voir sur GitHub", destination: page)
-                        }
-                    }
-                }
-            case .downloading(let info):
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Téléchargement de Pulse \(info.version)…")
-                }
-            case .installing:
-                HStack {
-                    ProgressView().controlSize(.small)
-                    Text("Installation… Pulse va redémarrer.")
-                }
-            default:
-                LabeledContent {
-                    if case .checking = updater.phase {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Button("Rechercher maintenant") {
-                            Task { await updater.check(.user) }
-                        }
-                    }
-                } label: {
-                    UpdateStatusText(updater: updater)
-                }
+        SettingsSection(title: "Mises à jour", padding: EdgeInsets(top: 14, leading: 16, bottom: 12, trailing: 16), spacing: 0) {
+            SettingsRow(title: "Version installée") {
+                Text(updater.currentVersion)
+                    .font(.system(size: 13))
+                    .monospacedDigit()
+                    .foregroundStyle(PulseTheme.secondary)
             }
-        } header: {
-            Text("Mises à jour")
-        } footer: {
-            Text("Les mises à jour viennent des releases GitHub de Pulse. Chaque téléchargement est vérifié (empreinte SHA-256) avant l'installation.")
-                .sectionFooter()
-        }
-    }
-}
-
-private struct UpdateStatusText: View {
-    let updater: Updater
-
-    var body: some View {
-        switch updater.phase {
-        case .checking:
-            Text("Recherche en cours…")
-        case .upToDate:
-            Label {
-                Text(upToDateText)
-            } icon: {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+            .padding(.top, 4)
+            SettingsRow(title: "Rechercher automatiquement", subtitle: "Au lancement, puis chaque jour") {
+                PulseSwitch(isOn: $updater.automaticChecks, label: "Rechercher automatiquement")
             }
-        case .failed(let message):
-            Label(message, systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
-        default:
-            Text("Pas encore recherché")
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    /// « Pulse est à jour (vérifié à 14:32) ».
-    private var upToDateText: String {
-        guard let lastCheck = updater.lastCheck else { return "Pulse est à jour" }
-        return "Pulse est à jour (vérifié à \(UsageFormat.hourMinute(lastCheck)))"
-    }
-}
-
-// MARK: - Une IA
-
-private struct ServiceSettingsTab: View {
-    let app: AppModel
-    @Bindable var model: UsageModel
-
-    private var service: AiService { model.service }
-
-    var body: some View {
-        @Bindable var settings = model.settings
-        Form {
-            Section {
-                Toggle("Suivre \(service.title)", isOn: $model.isEnabled)
-            } footer: {
-                Text("Sans suivi, la puce est retirée de la barre des menus et Pulse ne fait plus aucune requête pour \(service.title).")
-                    .sectionFooter()
-            }
-
-            Section("Connexion") {
-                ConnectionStatusRow(model: model)
-                if service == .claude {
-                    ClaudeConnectionControls(app: app, model: model)
-                } else {
-                    AccountConnectionControls(app: app, model: model)
-                }
-                Button("Vérifier maintenant") { model.refreshNow() }
-                    .disabled(!model.isEnabled || model.isRefreshing)
-            }
-
-            Section("Barre des menus") {
-                Picker("Valeur affichée", selection: $settings.display) {
-                    ForEach(BarDisplay.allCases) { Text($0.title).tag($0) }
-                }
-                Picker("Pourcentage", selection: $settings.valueMode) {
-                    ForEach(ValueMode.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                LabeledContent("Aperçu") {
-                    BarPreview(model: model)
-                }
-            }
-
-            Section {
-                Picker("Actualiser toutes les", selection: $model.refreshInterval) {
-                    ForEach(ServiceSettings.intervals, id: \.self) { seconds in
-                        Text(UsageFormat.interval(seconds)).tag(seconds)
-                    }
-                }
-                Stepper(
-                    value: $settings.thresholds.warning,
-                    in: 5...(settings.thresholds.critical - 5),
-                    step: 5
-                ) {
-                    ThresholdLabel(title: "Orange au-delà de", value: settings.thresholds.warning, color: .orange)
-                }
-                Stepper(
-                    value: $settings.thresholds.critical,
-                    in: (settings.thresholds.warning + 5)...100,
-                    step: 5
-                ) {
-                    ThresholdLabel(title: "Rouge au-delà de", value: settings.thresholds.critical, color: .red)
-                }
-            } header: {
-                Text("Actualisation et alertes")
-            } footer: {
-                Text("Les seuils portent sur le pourcentage utilisé, même si la puce affiche le restant.")
-                    .sectionFooter()
-            }
-        }
-        .formStyle(.grouped)
-    }
-}
-
-private struct ThresholdLabel: View {
-    let title: String
-    let value: Int
-    let color: Color
-
-    var body: some View {
-        LabeledContent {
-            Text("\(value) %").monospacedDigit()
-        } label: {
-            Label {
-                Text(title)
-            } icon: {
-                Circle().fill(color).frame(width: 8, height: 8)
-            }
-        }
-    }
-}
-
-// MARK: - Connexion
-
-private struct ConnectionStatusRow: View {
-    let model: UsageModel
-
-    var body: some View {
-        let status = ConnectionStatus(model: model)
-        VStack(alignment: .leading, spacing: 4) {
-            LabeledContent("État") {
-                Label {
-                    Text(status.title)
-                } icon: {
-                    Circle().fill(status.color).frame(width: 8, height: 8)
-                }
-            }
-            if model.isEnabled, model.state != nil,
-                let message = UsagePopover.message(
-                    for: model.state, service: model.service, refreshInterval: model.refreshInterval)
-            {
-                Text(message.text)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-}
-
-private struct ConnectionStatus {
-    let title: String
-    let color: Color
-
-    @MainActor
-    init(model: UsageModel) {
-        guard model.isEnabled else {
-            (title, color) = ("Non suivi", .gray)
-            return
-        }
-        switch model.state {
-        case nil: (title, color) = ("Vérification…", .gray)
-        case .ok: (title, color) = ("Connecté", .green)
-        case .offline: (title, color) = ("Hors ligne", .gray)
-        case .notConnected: (title, color) = ("Non connecté", .gray)
-        case .expired: (title, color) = ("Connexion expirée", .orange)
-        case .blocked: (title, color) = ("Connecté, accès bloqué", .orange)
-        case .unavailable: (title, color) = ("Données indisponibles", .orange)
-        }
-    }
-}
-
-/// Claude : choix de la méthode, et connexion au compte claude.ai dans l'app.
-private struct ClaudeConnectionControls: View {
-    let app: AppModel
-    let model: UsageModel
-
-    @AppStorage(ClaudeAuthMethod.storageKey) private var method = ClaudeAuthMethod.claudeCode
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Picker("Méthode", selection: $method) {
-            ForEach(ClaudeAuthMethod.allCases) { method in
-                Text(method.title).tag(method)
-            }
-        }
-        .onChange(of: method) {
-            model.refreshNow()
-        }
-
-        switch method {
-        case .claudeAi:
-            if app.claudeAccount.claudeAiConnected {
-                LabeledContent("Compte claude.ai") {
-                    Button("Se déconnecter") { app.disconnectClaudeAi() }
-                }
-            } else {
-                LabeledContent("Compte claude.ai") {
-                    Button("Se connecter…") {
-                        openWindow(id: WindowID.claudeLogin)
-                        NSApp.activate()
-                    }
-                }
-            }
-        case .claudeCode:
-            CliConnectionControls(service: .claude, isSignedIn: model.isSignedIn)
-        }
-    }
-}
-
-/// ChatGPT, Gemini, Copilot : l'outil en ligne de commande, ou un compte
-/// connecté dans Pulse.
-private struct AccountConnectionControls: View {
-    let app: AppModel
-    let model: UsageModel
-    @AppStorage private var method: ConnectionMethod
-    @Environment(\.openWindow) private var openWindow
-
-    init(app: AppModel, model: UsageModel) {
-        self.app = app
-        self.model = model
-        _method = AppStorage(wrappedValue: .cli, ConnectionMethod.storageKey(for: model.service))
-    }
-
-    private var service: AiService { model.service }
-
-    var body: some View {
-        Picker("Méthode", selection: $method) {
-            Text(service.cliName).tag(ConnectionMethod.cli)
-            Text(service.accountName).tag(ConnectionMethod.account)
-        }
-        .onChange(of: method) {
-            model.refreshNow()
-        }
-
-        switch method {
-        case .cli:
-            CliConnectionControls(service: service, isSignedIn: model.isSignedIn)
-        case .account:
-            accountControls
+            status
+            SettingsNote("Les mises à jour viennent des releases GitHub de Pulse. Chaque téléchargement est vérifié (empreinte SHA-256) avant l'installation.")
+                .padding(.top, 10)
         }
     }
 
     @ViewBuilder
-    private var accountControls: some View {
-        if app.account(for: service)?.isConnected == true {
-            LabeledContent(service.accountName) {
-                Button("Se déconnecter") { app.disconnectAccount(service) }
-            }
-        } else {
-            switch service {
-            case .chatGpt:
-                LabeledContent(service.accountName) {
-                    Button("Se connecter…") { show(WindowID.chatGptLogin) }
-                }
-                Text("Connectez-vous avec l'adresse e-mail de votre compte : la connexion via Google, Apple ou Microsoft peut être refusée dans cette fenêtre.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            case .copilot:
-                LabeledContent(service.accountName) {
-                    Button("Se connecter…") { show(WindowID.githubLogin) }
-                }
-            case .gemini:
-                GoogleSignInRow(app: app)
-            case .claude:
-                EmptyView()
-            }
-        }
-    }
-
-    private func show(_ id: String) {
-        openWindow(id: id)
-        NSApp.activate()
-    }
-}
-
-/// Gemini : la connexion se fait dans le navigateur.
-private struct GoogleSignInRow: View {
-    let app: AppModel
-
-    var body: some View {
-        switch app.googleSignIn.phase {
-        case .waiting:
-            LabeledContent {
-                Button("Annuler") { app.googleSignIn.cancel() }
-            } label: {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Connexion en cours dans votre navigateur…")
-                }
-            }
-        case .idle, .failed:
-            LabeledContent(AiService.gemini.accountName) {
-                Button("Se connecter avec Google…") { app.signInWithGoogle() }
-            }
-            if case .failed(let message) = app.googleSignIn.phase {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(.orange)
-            }
-        }
-    }
-}
-
-extension AiService {
-    /// L'outil en ligne de commande qui fournit les identifiants.
-    var cliName: String {
-        switch self {
-        case .claude: "Claude Code"
-        case .chatGpt: "Codex CLI"
-        case .gemini: "Gemini CLI"
-        case .copilot: "GitHub CLI"
-        }
-    }
-
-    /// Le compte qu'on peut connecter directement dans Pulse.
-    var accountName: String {
-        switch self {
-        case .claude: "Compte claude.ai"
-        case .chatGpt: "Compte ChatGPT"
-        case .gemini: "Compte Google"
-        case .copilot: "Compte GitHub"
-        }
-    }
-}
-
-/// Les IA connectées par un outil en ligne de commande. Pulse lit leurs
-/// identifiants sans jamais les modifier : la connexion et la déconnexion se
-/// font dans l'outil lui-même.
-private struct CliConnectionControls: View {
-    let service: AiService
-    let isSignedIn: Bool
-
-    var body: some View {
-        let instruction = isSignedIn ? service.logoutInstruction : service.loginInstruction
-        VStack(alignment: .leading, spacing: 8) {
-            Text(isSignedIn ? "Se déconnecter" : "Se connecter")
-                .font(.subheadline.weight(.medium))
-            if let command = instruction.command {
-                HStack {
-                    Text(command)
-                        .font(.body.monospaced())
+    private var status: some View {
+        switch updater.phase {
+        case .available(let info):
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Pulse \(info.version) est disponible", systemImage: "arrow.down.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(PulseTheme.accent)
+                if !info.notes.isEmpty {
+                    Text(info.notes.replacingOccurrences(of: "\r", with: ""))
+                        .font(.system(size: 12))
+                        .foregroundStyle(PulseTheme.secondary)
+                        .lineLimit(8)
                         .textSelection(.enabled)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 5))
-                    Spacer()
-                    Button("Copier") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(command, forType: .string)
+                }
+                HStack(spacing: 10) {
+                    Button("Installer et relancer") {
+                        Task { await updater.install(info) }
                     }
-                    Button("Ouvrir le Terminal") {
-                        NSWorkspace.shared.openApplication(
-                            at: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
-                            configuration: NSWorkspace.OpenConfiguration())
+                    .buttonStyle(.pulsePrimary)
+                    if let page = URL(string: info.pageUrl), !info.pageUrl.isEmpty {
+                        Link("Voir sur GitHub", destination: page)
+                            .font(.system(size: 12))
                     }
                 }
             }
-            Text(instruction.note)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-private struct CliInstruction {
-    let command: String?
-    let note: String
-}
-
-extension AiService {
-    fileprivate var loginInstruction: CliInstruction {
-        switch self {
-        case .claude:
-            CliInstruction(command: "claude", note: "Dans Claude Code, tapez /login. Pulse lit ensuite le token dans le Trousseau.")
-        case .chatGpt:
-            CliInstruction(command: "codex login", note: "Connectez-vous avec votre compte ChatGPT dans le navigateur qui s'ouvre.")
-        case .gemini:
-            CliInstruction(command: "gemini", note: "Choisissez « Login with Google », puis connectez-vous dans le navigateur.")
-        case .copilot:
-            CliInstruction(command: "gh auth login", note: "Si gh n'est pas installé : brew install gh.")
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .bottom) { Rectangle().fill(PulseTheme.cardBorder).frame(height: 1) }
+        case .downloading(let info):
+            progressRow("Téléchargement de Pulse \(info.version)…")
+        case .installing:
+            progressRow("Installation… Pulse va redémarrer.")
+        default:
+            let text = statusText
+            SettingsRow(title: text.title, subtitle: text.subtitle) {
+                if case .checking = updater.phase {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button("Rechercher maintenant") {
+                        Task { await updater.check(.user) }
+                    }
+                    .buttonStyle(.pulse)
+                }
+            }
         }
     }
 
-    fileprivate var logoutInstruction: CliInstruction {
-        switch self {
-        case .claude:
-            CliInstruction(command: "claude", note: "Dans Claude Code, tapez /logout. Pulse ne modifie jamais ses identifiants.")
-        case .chatGpt:
-            CliInstruction(command: "codex logout", note: "Pulse ne modifie jamais les identifiants de Codex.")
-        case .gemini:
-            CliInstruction(command: nil, note: "Dans Gemini CLI, tapez /auth pour changer de compte. Pulse ne modifie jamais ses identifiants.")
-        case .copilot:
-            CliInstruction(command: "gh auth logout", note: "Pulse ne modifie jamais les identifiants de GitHub CLI.")
+    private func progressRow(_ text: String) -> some View {
+        SettingsRow(title: text) {
+            ProgressView().controlSize(.small)
         }
     }
-}
 
-// MARK: - Aperçu
-
-/// La puce telle qu'elle apparaîtra, avec les valeurs actuelles si elles sont
-/// connues, sinon avec des valeurs d'exemple.
-private struct BarPreview: View {
-    let model: UsageModel
-
-    private static let sample = [
-        UsageWindow(label: "Session", percent: 42, resetsAt: nil, projectedFullAt: nil),
-        UsageWindow(label: "Semaine", percent: 81, resetsAt: nil, projectedFullAt: nil),
-    ]
-
-    var body: some View {
-        let usesSample = model.windows.isEmpty
-        let content = UsageModel.barContent(
-            windows: usesSample ? Self.sample : model.windows, settings: model.settings)
-        VStack(alignment: .trailing, spacing: 4) {
-            MenuBarLabel(logo: model.service.logo(), text: content.text, level: content.level)
-                .font(Font(NSFont.menuBarFont(ofSize: 0)))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(.bar, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
-            Text(usesSample ? "Valeurs d'exemple" : "Valeurs actuelles")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private var statusText: (title: String, subtitle: String?) {
+        switch updater.phase {
+        case .checking:
+            return ("Recherche en cours…", nil)
+        case .upToDate:
+            guard let lastCheck = updater.lastCheck else { return ("Pulse est à jour", nil) }
+            return ("Pulse est à jour", "Vérifié à \(UsageFormat.hourMinute(lastCheck))")
+        case .failed(let message):
+            return ("La recherche a échoué", message)
+        default:
+            return ("Pas encore recherché", nil)
         }
     }
 }
