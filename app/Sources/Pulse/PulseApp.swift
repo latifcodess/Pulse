@@ -24,6 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WindowRouter.shared.app = app
         statusBar = StatusBarController(app: app)
         lockScreen = LockScreenWindow(app: app)
+        // Premier lancement après une mise à jour : le widget reprend le nouveau code.
+        WidgetRestart.afterUpdateIfNeeded()
     }
 
     /// Un clic sur le widget : « pulse://ia/claude » ouvre la fenêtre de Claude.
