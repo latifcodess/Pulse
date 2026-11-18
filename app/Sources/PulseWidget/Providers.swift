@@ -18,7 +18,7 @@ extension PulseEntry {
     /// grisé restent à jour entre deux actualisations de l'app, qui de toute
     /// façon redemande un rafraîchissement après chacune.
     static func timeline(serviceID: String?) -> Timeline<PulseEntry> {
-        let snapshot = WidgetSnapshot.read()
+        let snapshot = read()
         let now = Date.now
         let entries = (0...12).map { step in
             PulseEntry(date: now.addingTimeInterval(TimeInterval(step * 5 * 60)), snapshot: snapshot, serviceID: serviceID)
@@ -27,7 +27,14 @@ extension PulseEntry {
     }
 
     static func now(serviceID: String?) -> PulseEntry {
-        PulseEntry(date: .now, snapshot: WidgetSnapshot.read(), serviceID: serviceID)
+        PulseEntry(date: .now, snapshot: read(), serviceID: serviceID)
+    }
+
+    /// Le fichier de l'app, et la couleur qu'elle y a notée.
+    private static func read() -> WidgetSnapshot? {
+        let snapshot = WidgetSnapshot.read()
+        NormalColor.shared.hex = snapshot?.normalColor ?? NormalColor.defaultHex
+        return snapshot
     }
 
     /// Les valeurs de la maquette, pour la galerie des widgets.

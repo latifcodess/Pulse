@@ -63,6 +63,8 @@ final class StatusBarController: NSObject {
 
     private func render() {
         let prefs = app.menuBar
+        // Lue ici pour que l'observation la suive : les images en dépendent.
+        _ = NormalColor.shared.hex
         let shown = app.services.filter(prefs.showsInBar)
         let grouped = prefs.style == .compact || prefs.groupsServices
 

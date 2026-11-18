@@ -16,12 +16,14 @@ struct PulseApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var app: AppModel?
     private var statusBar: StatusBarController?
+    private var lockScreen: LockScreenWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let app = AppModel()
         self.app = app
         WindowRouter.shared.app = app
         statusBar = StatusBarController(app: app)
+        lockScreen = LockScreenWindow(app: app)
     }
 
     /// Un clic sur le widget : « pulse://ia/claude » ouvre la fenêtre de Claude.

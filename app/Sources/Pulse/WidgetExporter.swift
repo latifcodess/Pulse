@@ -23,7 +23,7 @@ final class WidgetExporter {
 
     private func export(_ models: [UsageModel], history: UsageHistoryRecorder) {
         let services = models.map { Self.service(from: $0, history: history) }
-        let snapshot = WidgetSnapshot(writtenAt: .now, services: services)
+        let snapshot = WidgetSnapshot(writtenAt: .now, services: services, normalColor: NormalColor.shared.hex)
         do {
             try snapshot.write()
             WidgetCenter.shared.reloadAllTimelines()

@@ -109,7 +109,7 @@ struct RingEntryView: View {
     var body: some View {
         UsageRing(
             percent: entry.ringPercent ?? 0,
-            color: palette.color(entry.level, normal: PulseTheme.accent),
+            color: palette.color(entry.level, normal: PulseTheme.normal),
             size: 16,
             trackColor: palette.ringTrack)
     }

@@ -166,6 +166,8 @@ private struct GeneralSettingsPage: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
+            ColorSection(menuBar: menuBar)
+
             SettingsSection(padding: EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16), spacing: 0) {
                 SettingsRow(
                     title: "Regrouper les IA dans un seul élément",
@@ -190,7 +192,7 @@ private struct GeneralSettingsPage: View {
                     subtitle: launchAtLogin.needsApproval
                         ? "macOS attend votre accord dans Réglages Système › Général › Ouverture."
                         : nil,
-                    showsDivider: false
+                    showsDivider: launchAtLogin.errorMessage == nil
                 ) {
                     HStack(spacing: 10) {
                         if launchAtLogin.needsApproval {
@@ -202,13 +204,91 @@ private struct GeneralSettingsPage: View {
                 }
                 if let error = launchAtLogin.errorMessage {
                     SettingsNote(error, color: PulseTheme.warningText)
-                        .padding(.bottom, 10)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .overlay(alignment: .bottom) { Rectangle().fill(PulseTheme.cardBorder).frame(height: 1) }
                 }
+                SettingsRow(
+                    title: "Afficher sur l'écran verrouillé",
+                    subtitle: LockScreenWindow.isAvailable
+                        ? "Expérimental : le logo, le % et la projection de chaque IA, sous l'horloge. Visible par toute personne devant le Mac."
+                        : "Non disponible sur cette version de macOS",
+                    showsDivider: false
+                ) {
+                    PulseSwitch(isOn: $menuBar.showsOnLockScreen, label: "Afficher sur l'écran verrouillé")
+                        .disabled(!LockScreenWindow.isAvailable)
+                }
+                .opacity(LockScreenWindow.isAvailable ? 1 : 0.6)
             }
 
             UpdatesSection(updater: app.updater)
         }
         .onAppear { launchAtLogin.reload() }
+    }
+}
+
+/// La couleur des pourcentages, barres et anneaux sous le seuil orange :
+/// une pastille par couleur proposée, ou une couleur personnalisée.
+private struct ColorSection: View {
+    @Bindable var menuBar: MenuBarPreferences
+
+    var body: some View {
+        let isPreset = NormalColor.presets.contains { $0.hex == menuBar.normalColorHex }
+        SettingsSection(title: "Couleur") {
+            HStack(spacing: 8) {
+                ForEach(NormalColor.presets, id: \.hex) { preset in
+                    swatch(preset.hex, name: preset.name)
+                }
+            }
+            HStack(spacing: 10) {
+                ColorPicker(selection: customColor, supportsOpacity: false) {
+                    Text("Personnalisée").font(.system(size: 13))
+                }
+                .fixedSize()
+                if !isPreset {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(PulseTheme.secondary)
+                }
+                Spacer()
+                if menuBar.normalColorHex != NormalColor.defaultHex {
+                    Button("Couleur par défaut") { menuBar.normalColorHex = NormalColor.defaultHex }
+                        .buttonStyle(.pulse)
+                }
+            }
+            SettingsNote("Pour les pourcentages, les barres et les anneaux sous le seuil orange, dans la barre des menus, les fenêtres et les widgets. L'orange et le rouge restent ceux des seuils.")
+        }
+    }
+
+    private func swatch(_ hex: UInt32, name: String) -> some View {
+        let isSelected = menuBar.normalColorHex == hex
+        return Button {
+            withAnimation(.smooth(duration: 0.2)) { menuBar.normalColorHex = hex }
+        } label: {
+            Circle()
+                .fill(Color(hex: hex))
+                .frame(width: 22, height: 22)
+                .padding(3)
+                .overlay {
+                    Circle().strokeBorder(isSelected ? PulseTheme.text : .clear, lineWidth: 2)
+                }
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(name)
+        .accessibilityLabel(name)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Le sélecteur de couleurs de macOS, enregistré en 0xRRGGBB.
+    private var customColor: Binding<Color> {
+        Binding {
+            Color(hex: menuBar.normalColorHex)
+        } set: { color in
+            guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return }
+            let channel = { (value: CGFloat) in UInt32((min(max(value, 0), 1) * 255).rounded()) }
+            menuBar.normalColorHex = channel(rgb.redComponent) << 16 | channel(rgb.greenComponent) << 8 | channel(rgb.blueComponent)
+        }
     }
 }
 
@@ -273,8 +353,8 @@ private struct StylePreview: View {
                     .foregroundStyle(PulseTheme.secondary)
             case .rings:
                 UsageRing(percent: 78, color: PulseTheme.warning, size: 14)
-                UsageRing(percent: 42, color: PulseTheme.accent, size: 14)
-                UsageRing(percent: 12, color: PulseTheme.accent, size: 14)
+                UsageRing(percent: 42, color: PulseTheme.normal, size: 14)
+                UsageRing(percent: 12, color: PulseTheme.normal, size: 14)
             case .compact:
                 PulseGlyph()
                     .stroke(PulseTheme.warning, style: StrokeStyle(lineWidth: 2.6 * 13 / 24, lineCap: .round, lineJoin: .round))

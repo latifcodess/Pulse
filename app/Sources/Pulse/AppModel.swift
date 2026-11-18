@@ -94,6 +94,9 @@ final class AppModel {
                 self?.exportForWidget()
             }
         }
+        menuBar.onColorChange = { [weak self] in
+            self?.exportForWidget()
+        }
         updater.notify = { [alertCenter] title, body in
             alertCenter.notifyAboutUpdate(title: title, body: body)
         }

@@ -7,6 +7,9 @@ struct WidgetSnapshot: Codable, Sendable {
     /// Quand l'app a écrit le fichier.
     var writtenAt: Date
     var services: [Service]
+    /// La couleur choisie sous le seuil orange (0xRRGGBB). Absente des
+    /// fichiers écrits par une version plus ancienne : couleur par défaut.
+    var normalColor: UInt32?
 
     struct Service: Codable, Sendable, Identifiable {
         /// « claude », « chatgpt », « gemini », « copilot ».

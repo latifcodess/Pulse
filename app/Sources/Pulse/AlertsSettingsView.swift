@@ -147,13 +147,13 @@ private struct AlertRuleCard: View {
                 case .available:
                     ThresholdSlider(
                         title: "Si la fenêtre précédente a dépassé", value: percent, range: 5...100,
-                        color: PulseTheme.accent)
+                        color: PulseTheme.normal)
                 case .expired:
                     SettingsNote("Un clic sur la notification ouvre les réglages de l'IA.")
                 case .projection:
                     ThresholdSlider(
                         title: "Si atteinte dans moins de", value: minutes, range: 5...120,
-                        color: PulseTheme.accent, scale: 0...120, unit: "min")
+                        color: PulseTheme.normal, scale: 0...120, unit: "min")
                     SettingsNote("Au rythme actuel de consommation. Une seule fois par fenêtre.")
                 }
             }

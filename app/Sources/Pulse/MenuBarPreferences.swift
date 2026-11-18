@@ -53,7 +53,25 @@ final class MenuBarPreferences {
         didSet { defaults.set(hideBelow, forKey: Keys.hideBelow) }
     }
 
+    /// Expérimental : les IA affichées sur l'écran verrouillé (voir LockScreenWindow).
+    var showsOnLockScreen: Bool {
+        didSet { defaults.set(showsOnLockScreen, forKey: Keys.lockScreen) }
+    }
+
+    /// La couleur sous le seuil orange (0xRRGGBB), partagée avec toutes les vues.
+    var normalColorHex: UInt32 {
+        didSet {
+            defaults.set(Int(normalColorHex), forKey: Keys.normalColor)
+            NormalColor.shared.hex = normalColorHex
+            onColorChange?()
+        }
+    }
+    /// Pour réécrire le fichier du widget.
+    @ObservationIgnored var onColorChange: (() -> Void)?
+
     private enum Keys {
+        static let normalColor = "appearance.normalColor"
+        static let lockScreen = "lockScreen.enabled"
         static let style = "menuBar.style"
         static let groups = "menuBar.groupsServices"
         static let hideBelow = "menuBar.hideBelow"
@@ -66,6 +84,10 @@ final class MenuBarPreferences {
         groupsServices = defaults.object(forKey: Keys.groups) as? Bool ?? true
         let hide = defaults.object(forKey: Keys.hideBelow) as? Int ?? 0
         hideBelow = Self.hideOptions.contains(hide) ? hide : 0
+        showsOnLockScreen = defaults.object(forKey: Keys.lockScreen) as? Bool ?? false
+        let color = defaults.object(forKey: Keys.normalColor) as? Int ?? Int(NormalColor.defaultHex)
+        normalColorHex = (0...0xFFFFFF).contains(color) ? UInt32(color) : NormalColor.defaultHex
+        NormalColor.shared.hex = normalColorHex
     }
 
     /// L'IA a sa place dans la barre : suivie, et pas sous le seuil de masquage.

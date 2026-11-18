@@ -21,6 +21,9 @@ enum PulseTheme {
 
     // Niveaux
     static let accent = Color(hex: 0x64D2FF)
+    /// Textes, barres et anneaux sous le seuil orange : la couleur choisie
+    /// dans les réglages (voir NormalColor).
+    static var normal: Color { Color(hex: NormalColor.shared.hex) }
     static let warning = Color(hex: 0xFF9F0A)
     static let critical = Color(hex: 0xFF453A)
     /// Textes sur fond orange ou rouge.
@@ -42,8 +45,27 @@ enum PulseTheme {
     static func levelColor(_ percent: Double, warning: Int, critical: Int) -> Color {
         if percent >= Double(critical) { return Self.critical }
         if percent >= Double(warning) { return Self.warning }
-        return accent
+        return normal
     }
+}
+
+/// La couleur des pourcentages, barres et anneaux sous le seuil orange.
+/// L'app la règle (Réglages › Général) ; le widget la lit dans son fichier.
+/// Observable : les vues qui l'affichent se redessinent quand elle change.
+@Observable
+final class NormalColor: @unchecked Sendable {
+    static let shared = NormalColor()
+    static let defaultHex: UInt32 = 0x64D2FF
+
+    /// Les couleurs proposées dans les réglages.
+    static let presets: [(name: String, hex: UInt32)] = [
+        ("Bleu ciel", 0x64D2FF), ("Blanc", 0xF5F5F7), ("Vert", 0x30D158),
+        ("Menthe", 0x66D4CF), ("Indigo", 0x7D7AFF), ("Gris clair", 0xAEAEB2),
+        ("Vert sauge", 0x8FD19E), ("Citron vert", 0xB5E853), ("Turquoise", 0x40C8E0),
+        ("Bleu pervenche", 0x8AB4F8), ("Glacier", 0xA5E4F0), ("Rose", 0xFF7AB6),
+    ]
+
+    var hex: UInt32 = defaultHex
 }
 
 extension Color {
