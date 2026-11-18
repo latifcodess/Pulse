@@ -198,9 +198,9 @@ cd core && cargo test     # tests du cœur Rust
 
 ### Publier une nouvelle version
 
-1. Augmente `MARKETING_VERSION` (et `CURRENT_PROJECT_VERSION`) dans [`project.yml`](project.yml).
-2. Lance `./scripts/package.sh` : il produit dans `build/release/` le DMG et son empreinte, `Pulse-x.y.z.dmg` et `Pulse-x.y.z.dmg.sha256`.
-3. Fais le commit et le push, puis crée une release GitHub avec le tag **`vx.y.z`**, des notes de version (elles s'affichent dans Pulse) et **les deux fichiers**.
+1. Augmente `MARKETING_VERSION` dans [`project.yml`](project.yml).
+2. Lance `./scripts/package.sh`. Il augmente tout seul le numéro de build (`CURRENT_PROJECT_VERSION`, le même pour l'app et le widget), vérifie que le widget est bien embarqué avec la même version, la même équipe et le même App Group, puis produit dans `build/release/` le DMG et son empreinte, `Pulse-x.y.z.dmg` et `Pulse-x.y.z.dmg.sha256`.
+3. Fais le commit (avec `project.yml`) et le push, puis crée une release GitHub avec le tag **`vx.y.z`**, des notes de version (elles s'affichent dans Pulse) et **les deux fichiers**.
 
 Une release sans fichier `.sha256` est refusée par Pulse. Les brouillons et les préversions sont ignorés.
 
